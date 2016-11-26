@@ -16,3 +16,14 @@ bot.onText(/^\/say_hello (.+)$/, function (msg, match) {
 
   });
 });
+
+function replyWithError(userId, err) {
+    logger.warn('user: %s, message: %s', userId, err.message);
+
+    bot.sendMessage(userId, 'QQ Something wrong! ' + err, {
+        'parse_mode': 'Markdown',
+        'reply_markup': {
+            'hide_keyboard': true
+        }
+    })
+}
