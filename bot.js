@@ -1,13 +1,18 @@
-var token = process.env.TOKEN;
+'use strict';
 
-var Bot = require('node-telegram-bot-api');
-var bot = new Bot(token, { polling: true });
+var _               = require('lodash');
+var Bot             = require('node-telegram-bot-api');
 
-console.log('bot server started...');
+
+const config = require('./config.json');
+var logger = require(__dirname + '/lib/logger');
+var bot = new Bot(config.telegram.botToken, { polling: true });
+
+logger.info('bot server started...');
 
 bot.onText(/^\/say_hello (.+)$/, function (msg, match) {
   var name = match[1];
   bot.sendMessage(msg.chat.id, 'Hello ' + name + '!').then(function () {
-    
+
   });
 });
