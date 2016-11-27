@@ -34,12 +34,9 @@ bot.onText(/^\/start$/, function (msg){
             'selective': 2
         });
 
-        chat.set(chatId, {
-            "state": "IDLE",
-            "rule": createDefaultScheduleArray(chatId)
-        })
+        chat.set(chatId, new Map().set("state", "IDLE"));
+        chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
 
-        console.log(chat.get(-162065259).rule);
     }
 
 })
@@ -65,17 +62,49 @@ function createDefaultScheduleArray(chatId){
     var ruleArray = [];
     _.forEach(config.drop.dropStartTime.hour, function(configHour){
         var configMinute = config.drop.dropStartTime.minute;
-        console.log(configHour);
-        console.log(configMinute);
-        var j = schedule.scheduleJob({hour: configHour, minute: configMinute}, function(){
+        var j = schedule.scheduleJob({hour: configHour, minute: configMinute}, function dropStartFunction(){
             bot.sendMessage(chatId, config.drop.dropStartMsg, {
                 'parse_mode': 'Markdown',
                 'selective': 2
             });
+            chat.get(chatId).set("state", "DROP");
+            logger.info("drop start time");
+            setTimeout(dropStopFunction, config.drop.dropPeriodMin * 60 * 1000, chatId);
         });
         ruleArray.push(j);
     });
     return ruleArray;
+}
+
+function dropStopFunction(chatId){
+    bot.sendMessage(chatId, config.drop.dropStopMsg, {
+        'parse_mode': 'Markdown',
+        'selective': 2
+    });
+    console.log(chatId);
+    console.log(chat);
+    chat.get(chatId).set("state", "LIKE");
+    logger.info("chatId : %s, drop stop time", chatId);
+    setTimeout(warnFunction, config.drop.likePeriodMin * 60 * 1000, chatId);
+}
+
+function warnFunction(chatId){
+    bot.sendMessage(chatId, config.drop.warnMsg, {
+        'parse_mode': 'Markdown',
+        'selective': 2
+    });
+    chat.get(chatId).set("state", "WARN");
+    logger.info("chatId : %s, warn time", chatId);
+    setTimeout(banFunction, config.drop.warnPeriodMin * 60 * 1000, chatId);
+}
+
+function banFunction(chatId){
+    bot.sendMessage(chatId, config.drop.banMsg, {
+        'parse_mode': 'Markdown',
+        'selective': 2
+    });
+    chat.get(chatId).set("state", "IDLE");
+    logger.info("ban time");
 }
 
 
