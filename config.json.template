@@ -2,8 +2,14 @@
     "telegram": {
         "botToken": ""
     } ,
+    "bot": {
+        "adminUserName": ""
+    },
     "drop": {
-        "dropStartTime": ["00:45", "04:45", "08:45", "12:45", "16:45", "20:45"],
+        "dropStartTime": [
+            "hour": [0, 4, 8, 12, 16, 20],
+            "minute": 0
+        ],
         "dropPeriodMin" : 20,
         "likePeriodMin" : 60,
         "warnPeriodMin" : 20,
