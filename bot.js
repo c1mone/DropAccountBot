@@ -2,7 +2,7 @@
 
 var _               = require('lodash');
 var Bot             = require('node-telegram-bot-api');
-
+var schedule        = require('node-schedule');
 
 const config = require('./config.json');
 var logger = require(__dirname + '/lib/logger');
@@ -17,7 +17,7 @@ bot.onText(/^\/say_hello (.+)$/, function (msg, match) {
   });
 });
 
-var chat = {};
+var chat = new Map();
 
 bot.onText(/^\/start$/, function (msg){
     var username = msg.from.username;
@@ -33,6 +33,13 @@ bot.onText(/^\/start$/, function (msg){
             'parse_mode': 'Markdown',
             'selective': 2
         });
+
+        chat.set(chatId, {
+            "state": "IDLE",
+            "rule": createDefaultScheduleArray(chatId)
+        })
+
+        console.log(chat.get(-162065259).rule);
     }
 
 })
@@ -53,6 +60,24 @@ bot.onText(/^\/stop$/, function (msg){
     }
 
 });
+
+function createDefaultScheduleArray(chatId){
+    var ruleArray = [];
+    _.forEach(config.drop.dropStartTime.hour, function(configHour){
+        var configMinute = config.drop.dropStartTime.minute;
+        console.log(configHour);
+        console.log(configMinute);
+        var j = schedule.scheduleJob({hour: configHour, minute: configMinute}, function(){
+            bot.sendMessage(chatId, config.drop.dropStartMsg, {
+                'parse_mode': 'Markdown',
+                'selective': 2
+            });
+        });
+        ruleArray.push(j);
+    });
+    return ruleArray;
+}
+
 
 function replyWithError(userName, chatId, err) {
     logger.warn('user: %s, message: %s', userName, err.message);
