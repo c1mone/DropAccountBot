@@ -190,10 +190,6 @@ function isAdmin(username) {
         return false;
 }
 
-/*
- * Restrict chat type to group
- */
-
 function isGroupChatType(chatType) {
     if(chatType === "group")
         return true;
