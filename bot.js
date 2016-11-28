@@ -3,6 +3,7 @@
 var _               = require('lodash');
 var Bot             = require('node-telegram-bot-api');
 var schedule        = require('node-schedule');
+var util            = require('util');
 
 const config = require('./config.json');
 var logger = require(__dirname + '/lib/logger');
@@ -25,9 +26,9 @@ bot.onText(/^\/start$/, function (msg){
     var chatType = msg.chat.type;
 
     if(isGroupChatType(chatType) && isAdmin(username)){
-        logger.info("user %s with chat type %s and chat id %s", username, chatId, chatType);
+        logger.info("user: %s start drop game in chat id %s", username, chatId);
         var response = ["Hello " + username + "!"];
-        response.push("Now start auto-drop game in this chat :)")
+        response.push("Now start auto-drop game in this chat :)");
 
         bot.sendMessage(chatId, response.join('\n'),{
             'parse_mode': 'Markdown',
@@ -35,7 +36,6 @@ bot.onText(/^\/start$/, function (msg){
         });
 
         chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()));
-        console.log(chat);
         chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
 
     }
@@ -54,7 +54,7 @@ bot.onText(/^!done$/), function(msg) {
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
     var username = msg.from.username || msg.from.first_name;
-    if(isGroupChatType(chatType) && chat.has(chatId) && (chat.get(chatId).get("state") === "LIKE" || chat.get(chatId).get("state") === "WARN"){
+    if(isGroupChatType(chatType) && chat.has(chatId) && (chat.get(chatId).get("state") === "LIKE" || chat.get(chatId).get("state") === "WARN")){
         chat.get(chatId).get("done").add(username);
         bot.sendMessage(chatId, "You're done!",{
             'parse_mode': 'Markdown',
@@ -88,7 +88,8 @@ function createDefaultScheduleArray(chatId){
     _.forEach(config.drop.dropStartTime.hour, function(configHour){
         var configMinute = config.drop.dropStartTime.minute;
         var j = schedule.scheduleJob({hour: configHour, minute: configMinute}, function dropStartFunction(){
-            bot.sendMessage(chatId, config.drop.dropStartMsg, {
+            var respone = util.format(config.drop.dropStartMsg, config.drop.dropPeriodMin);
+            bot.sendMessage(chatId, respone, {
                 'parse_mode': 'Markdown',
                 'selective': 2
             });
@@ -102,7 +103,7 @@ function createDefaultScheduleArray(chatId){
 }
 
 function dropStopFunction(chatId){
-    var response = [config.drop.dropStopMsg].concat([...chat.get(chatId).get("ig")]);
+    var response = [util.format(config.drop.dropStopMsg, config.drop.likePeriodMin)].concat([...chat.get(chatId).get("ig")]);
 
     bot.sendMessage(chatId, response.join('\n'), {
         'parse_mode': 'Markdown',
@@ -111,12 +112,13 @@ function dropStopFunction(chatId){
     chat.get(chatId).set("state", "LIKE");
     chat.get(chatId).get("ig").clear();
     chat.get(chatId).set("ig", new Set());
-    logger.info("chatId : %s, drop stop time", cxhatId);
+    logger.info("chatId : %s, drop stop time", chatId);
     setTimeout(warnFunction, config.drop.likePeriodMin * 60 * 1000, chatId);
 }
 
 function warnFunction(chatId){
-    bot.sendMessage(chatId, config.drop.warnMsg, {
+    var response = util.format(config.drop.warnMsg, config.drop.warnPeriodMin);
+    bot.sendMessage(chatId, response, {
         'parse_mode': 'Markdown',
         'selective': 2
     });
@@ -164,8 +166,4 @@ function isGroupChatType(chatType) {
         return true;
     else
         return false;
-}
-
-class Chat(){
-
 }
