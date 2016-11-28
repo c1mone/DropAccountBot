@@ -6,16 +6,16 @@
         "adminUserName": ""
     },
     "drop": {
-        "dropStartTime": [
+        "dropStartTime": {
             "hour": [0, 4, 8, 12, 16, 20],
             "minute": 0
-        ],
+        },
         "dropPeriodMin" : 20,
         "likePeriodMin" : 60,
         "warnPeriodMin" : 20,
-        "dropStartMsg": "Drop Start!",
-        "dropStopMsg": "Drop Stop! Please like everyone on the list!",
-        "WarnMsg": "Following accounts are not done: ",
-        "BanMsg": "Following accounts are not done: !!!!!"
+        "dropStartMsg": "Drop Start!\n You have %s minute to drop your account!",
+        "dropStopMsg": "Drop Stop!\n You have %s minute to like everyone on the list!",
+        "warnMsg": "Following accounts are not done!\nYou have %s minute to finish!",
+        "banMsg": "Following accounts are not done: !!!!!"
     }
 }
