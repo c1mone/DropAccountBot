@@ -71,11 +71,14 @@ bot.onText(/^\/stop$/, function (msg){
     if(isGroupChatType(chatType) && isAdmin(username)){
         var response = ["Hello " + username + "!"];
         response.push("Now stop auto-drop game in this chat :)")
-
         bot.sendMessage(chatId, response.join('\n'),{
             'parse_mode': 'Markdown',
             'selective': 2
         });
+        _.forEach(chat.get(chatId).get("rule"), function(rule){
+            rule.cancel();
+        });
+        chat.delete(chatId);
     }
 
 });
