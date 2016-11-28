@@ -87,7 +87,6 @@ bot.onText(/^\/stop$/, function (msg){
         });
         chat.delete(chatId);
         logger.debug("user: %s stop drop game in chat id: %s", username, chatId);
-        console.log(chat);
     }
 
 });
@@ -101,14 +100,14 @@ bot.on('message', function(msg) {
             var userId = msg.new_chat_member.id;
             chat.get(chatId).get("user").add(username);
             logger.debug("new member chatId: %s username: %s userid: %s", chatId, username, userId);
-            logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
+            logger.debug("chatId: %s member list %s", chatId, JSON.stringify([...chat.get(chatId).get("user")]));
         }
         if(msg.left_chat_member !== undefined){
             var username = msg.left_chat_member.username || msg.left_chat_member.first_name;
             var userId = msg.left_chat_member.id;
             chat.get(chatId).get("user").delete(username);
             logger.debug("left member chatId: %s username: %s userid: %s", chatId, username, userId);
-            logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
+            logger.debug("chatId: %s member list %s", chatId, JSON.stringify([...chat.get(chatId).get("user")]));
         }
     }
 });
@@ -147,8 +146,8 @@ function dropStopFunction(chatId){
 }
 
 function warnFunction(chatId){
-    var response = [util.format(config.drop.warnMsg, config.drop.warnPeriodMin)];
-    response.concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
+    var response = [util.format(config.drop.warnMsg, config.drop.warnPeriodMin)]
+    .concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
 
     bot.sendMessage(chatId, response.join("\n"), {
         'parse_mode': 'Markdown',
@@ -160,8 +159,8 @@ function warnFunction(chatId){
 }
 
 function banFunction(chatId){
-    var response = [config.drop.banMsg];
-    respone.concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
+    var response = [config.drop.banMsg]
+    .concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
     bot.sendMessage(chatId, response.join("\n"), {
         'parse_mode': 'Markdown',
         'selective': 2
