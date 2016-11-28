@@ -34,7 +34,7 @@ bot.onText(/^\/start$/, function (msg){
             'selective': 2
         });
 
-        chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()));
+        chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()));
         console.log(chat);
         chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
 
@@ -49,6 +49,19 @@ bot.onText(/^(@.+)$/, function (msg, match){
         chat.get(chatId).get("ig").add(match[1]);
     }
 });
+
+bot.onText(/^!done$/), function(msg) {
+    var chatId = msg.chat.id;
+    var chatType = msg.chat.type;
+    var username = msg.from.username || msg.from.first_name;
+    if(isGroupChatType(chatType) && chat.has(chatId) && (chat.get(chatId).get("state") === "LIKE" || chat.get(chatId).get("state") === "WARN"){
+        chat.get(chatId).get("done").add(username);
+        bot.sendMessage(chatId, "You're done!",{
+            'parse_mode': 'Markdown',
+            'selective': 2
+        });
+    }
+}
 
 bot.onText(/^\/stop$/, function (msg){
     var username = msg.from.username;
@@ -93,7 +106,9 @@ function dropStopFunction(chatId){
         'selective': 2
     });
     chat.get(chatId).set("state", "LIKE");
-    logger.info("chatId : %s, drop stop time", chatId);
+    chat.get(chatId).get("ig").clear();
+    chat.get(chatId).set("ig", new Set());
+    logger.info("chatId : %s, drop stop time", cxhatId);
     setTimeout(warnFunction, config.drop.likePeriodMin * 60 * 1000, chatId);
 }
 
@@ -113,6 +128,8 @@ function banFunction(chatId){
         'selective': 2
     });
     chat.get(chatId).set("state", "IDLE");
+    chat.get(chatId).get("done").clear();
+    chat.get(chatId).set("done", new Set());
     logger.info("ban time");
 }
 
@@ -144,4 +161,8 @@ function isGroupChatType(chatType) {
         return true;
     else
         return false;
+}
+
+class Chat(){
+
 }
