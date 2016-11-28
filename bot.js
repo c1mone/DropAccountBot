@@ -100,14 +100,14 @@ bot.on('message', function(msg) {
             var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
             var userId = msg.new_chat_member.id;
             chat.get(chatId).get("user").add(username);
-            logger.debug("new member username: %s userid: %s", username, userId);
+            logger.debug("new member chatId: %s username: %s userid: %s", chatId, username, userId);
             logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
         }
         if(msg.left_chat_member !== undefined){
             var username = msg.left_chat_member.username || msg.left_chat_member.first_name;
             var userId = msg.left_chat_member.id;
             chat.get(chatId).get("user").delete(username);
-            logger.debug("left member username: %s userid: %s", username, userId);
+            logger.debug("left member chatId: %s username: %s userid: %s", chatId, username, userId);
             logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
         }
     }
@@ -147,8 +147,10 @@ function dropStopFunction(chatId){
 }
 
 function warnFunction(chatId){
-    var response = util.format(config.drop.warnMsg, config.drop.warnPeriodMin);
-    bot.sendMessage(chatId, response, {
+    var response = [util.format(config.drop.warnMsg, config.drop.warnPeriodMin)];
+    response.concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
+
+    bot.sendMessage(chatId, response.join("\n"), {
         'parse_mode': 'Markdown',
         'selective': 2
     });
@@ -158,7 +160,9 @@ function warnFunction(chatId){
 }
 
 function banFunction(chatId){
-    bot.sendMessage(chatId, config.drop.banMsg, {
+    var response = [config.drop.banMsg];
+    respone.concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
+    bot.sendMessage(chatId, response.join("\n"), {
         'parse_mode': 'Markdown',
         'selective': 2
     });
