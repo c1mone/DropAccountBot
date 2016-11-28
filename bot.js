@@ -35,7 +35,7 @@ bot.onText(/^\/start$/, function (msg){
             'selective': 2
         });
 
-        chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()));
+        chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
         chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
 
     }
@@ -90,6 +90,27 @@ bot.onText(/^\/stop$/, function (msg){
         console.log(chat);
     }
 
+});
+
+bot.on('message', function(msg) {
+    var chatId = msg.chat.id;
+    var chatType = msg.chat.type;
+    if(isGroupChatType(chatType) && chat.has(chatId)){
+        if(msg.new_chat_member !== undefined){
+            var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
+            var userId = msg.new_chat_member.id;
+            chat.get(chatId).get("user").add(username);
+            logger.debug("new member username: %s userid: %s", username, userId);
+            logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
+        }
+        if(msg.left_chat_member !== undefined){
+            var username = msg.left_chat_member.username || msg.left_chat_member.first_name;
+            var userId = msg.left_chat_member.id;
+            chat.get(chatId).get("user").delete(username);
+            logger.debug("left member username: %s userid: %s", username, userId);
+            logger.debug("member list %s", JSON.stringify([...chat.get(chatId).get("user")]));
+        }
+    }
 });
 
 function createDefaultScheduleArray(chatId){
