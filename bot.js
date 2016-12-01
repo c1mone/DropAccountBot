@@ -42,6 +42,19 @@ bot.onText(/^\/start$/, function (msg){
 
 })
 
+bot.onText(/^\/pin$/, function (msg){
+    var username = msg.from.username;
+    var chatId = msg.chat.id;
+    var chatType = msg.chat.type;
+    var response = util.format(config.bot.pinnedMsg.join("\n"), "\u{2757}\u{2757}\u{2757}","\u{2757}\u{2757}\u{2757}");
+    if(isChatIdExist(chatId) && isGroupChatType(chatType) && isAdmin(username)){
+        bot.sendMessage(chatId, response,{
+            'parse_mode': 'Markdown',
+            'selective': 2
+        });
+    }
+});
+
 bot.onText(/^(@.+)$/, function (msg, match){
     var userId = msg.from.id;
     var username = msg.from.username || msg.from.first_name;
@@ -183,6 +196,10 @@ function replyWithError(userName, chatId, err) {
     })
 }
 
+function isChatIdExist(chatId){
+    return true;
+}
+
 function isAdmin(username) {
     if(config.bot.adminUserName === username)
         return true;
@@ -191,7 +208,7 @@ function isAdmin(username) {
 }
 
 function isGroupChatType(chatType) {
-    if(chatType === "group")
+    if(chatType === "group" || chatType === "supergroup")
         return true;
     else
         return false;

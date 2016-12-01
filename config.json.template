@@ -3,7 +3,8 @@
         "botToken": ""
     } ,
     "bot": {
-        "adminUserName": ""
+        "adminUserName": "",
+        "pinnedMsg": ["Group Rule!","1. Drop%s", "2. Like%s"]
     },
     "drop": {
         "dropStartTime": {
