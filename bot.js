@@ -4,10 +4,26 @@ var _               = require('lodash');
 var Bot             = require('node-telegram-bot-api');
 var schedule        = require('node-schedule');
 var util            = require('util');
+const Pool          = require('pg-pool');
+const url           = require('url')
 
 const config = require('./config.json');
 var logger = require(__dirname + '/lib/logger');
 var bot = new Bot(config.telegram.botToken, { polling: true });
+
+
+const params = url.parse(process.env.DATABASE_URL);
+console.log(params);
+const auth = params.auth.split(':');
+const herokuPgConfig = {
+  user: auth[0],
+  password: auth[1],
+  host: params.hostname,
+  port: params.port,
+  database: params.pathname.split('/')[1],
+  ssl: true
+};
+const pool = new Pool(herokuPgConfig);
 
 logger.info('bot server started...');
 
