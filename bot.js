@@ -55,7 +55,7 @@ bot.onText(/^\/start$/, function (msg){
     if(isGroupChatType(chatType) && isAdmin(username)){
         getChatIdExistPromise(chatId).then((isExist) => {
             if(isExist){
-                bot.sendMessage(chatId, "Auto-Drop game is already starting!");
+                throw new Error("Auto-Drop game is already starting!");
             }else{
                 logger.info("Admin: %s start drop game in chat id %s", username, chatId);
                 var response = ["OK " + username + "!"];
@@ -69,13 +69,16 @@ bot.onText(/^\/start$/, function (msg){
                 chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
                 chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
 
-                pool.query("INSERT INTO chatgroup(chat_id, chat_title) values($1, $2)", [chatId, chatTitle]).then((res) => {
+                return pool.query("INSERT INTO chatgroup(chat_id, chat_title) values($1, $2)", [chatId, chatTitle]).then((res) => {
                     logger.debug("Insert chat_id: %s, chat_title: %s success",chatId, chatTitle);
                 }).catch((err) => {
                     logger.error("Insert chat_id: %s, chat_title: %s error", chatId, chatTitle);
-                    logger.error('Insert error: ', e.message, e.stack);
+                    logger.error('Insert error: ', err.message, err.stack);
+                    throw new Error("could not connect to db, try again.");
                 });
             }
+        }).catch((err) => {
+            replyWithError(chatId, err);
         });
     }
 })
@@ -223,10 +226,10 @@ function banFunction(chatId){
 }
 
 
-function replyWithError(userName, chatId, err) {
-    logger.warn('user: %s, message: %s', userName, err.message);
+function replyWithError(chatId, err) {
+    logger.warn('chat id: %s, message: %s', chatId, err.message);
 
-    bot.sendMessage(chatId, 'QQ Something wrong! ' + err, {
+    bot.sendMessage(chatId, 'Oops! ' + err, {
         'parse_mode': 'Markdown',
         'reply_markup': {
             'hide_keyboard': true
@@ -246,10 +249,10 @@ function getChatIdExistPromise(chatId){
                 }else{
                     return false;
                 }
-            }).catch(e => {
+            }).catch(err => {
                 logger.error("Query chat id %s from postgres error", chatId);
-                logger.error('query error', e.message, e.stack);
-                return false;
+                logger.error('query error', err.message, err.stack);
+                throw new Error("Could not connect to db, try again.")
             }));
         }
     });
