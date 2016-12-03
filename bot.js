@@ -4,17 +4,26 @@ var _               = require('lodash');
 var Bot             = require('node-telegram-bot-api');
 var schedule        = require('node-schedule');
 var util            = require('util');
-const Pool          = require('pg-pool');
-const url           = require('url')
 
 const config = require('./config.json');
 var logger = require(__dirname + '/lib/logger');
 var bot = new Bot(config.telegram.botToken, { polling: true });
 
+/*
+ * Set up node cache
+ */
+const NodeCache     = require("node-cache");
+const cache       = new NodeCache({ stdTTL: 3600, checkperiod: 180 });
 
-const params = url.parse(process.env.DATABASE_URL);
-console.log(params);
-const auth = params.auth.split(':');
+/*
+ * Postgres connection pool settings
+ */
+
+const Pool          = require('pg-pool');
+const url           = require('url');
+console.log(process.env.DATABASE_URL);
+const params        = url.parse(process.env.DATABASE_URL);
+const auth          = params.auth.split(':');
 const herokuPgConfig = {
   user: auth[0],
   password: auth[1],
@@ -29,6 +38,8 @@ logger.info('bot server started...');
 
 bot.onText(/^\/say_hello (.+)$/, function (msg, match) {
   var name = match[1];
+  var chatId = msg.chat.id;
+  console.log(isChatIdExist(chatId));
   bot.sendMessage(msg.chat.id, 'Hello ' + name + '!').then(function () {
 
   });
@@ -212,8 +223,25 @@ function replyWithError(userName, chatId, err) {
     })
 }
 
-function isChatIdExist(chatId){
-    return true;
+function getChatIdExistPromise(chatId){
+    return new Promise((resolve, reject) => {
+        if(cache.get(chatId))
+            resolve(true);
+        else{
+            resolve(pool.query("SELECT * FROM chatgroup where chat_id = $1", [chatId]).then((res) => {
+                if(res.rowCount > 0){
+                    cache.set(chatId, true);
+                    return true;
+                }else{
+                    return false;
+                }
+            }).catch(e => {
+                logger.error("Query chat id %s from postgres error", chatId);
+                logger.error('query error', e.message, e.stack);
+                return false;
+            }));
+        }
+    });
 }
 
 function isAdmin(username) {

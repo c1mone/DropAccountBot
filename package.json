@@ -10,6 +10,7 @@
     "express": "^4.14.0",
     "lodash": "^4.17.2",
     "logfmt": "^1.2.0",
+    "node-cache": "^4.1.0",
     "node-schedule": "^1.2.0",
     "node-telegram-bot-api": "^0.24.0",
     "pg": "^6.1.0",
