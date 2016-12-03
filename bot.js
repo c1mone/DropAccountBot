@@ -57,18 +57,6 @@ bot.onText(/^\/start$/, function (msg){
             if(isExist){
                 throw new Error("Auto-Drop game is already starting!");
             }else{
-                logger.info("Admin: %s start drop game in chat id %s", username, chatId);
-                var response = ["OK " + username + "!"];
-                response.push("Now start auto-drop game in this chat :)");
-
-                bot.sendMessage(chatId, response.join('\n'),{
-                    'parse_mode': 'Markdown',
-                    'selective': 2
-                });
-
-                chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
-                chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
-
                 return pool.query("INSERT INTO chatgroup(chat_id, chat_title) values($1, $2)", [chatId, chatTitle]).then((res) => {
                     logger.debug("Insert chat_id: %s, chat_title: %s success",chatId, chatTitle);
                 }).catch((err) => {
@@ -77,6 +65,18 @@ bot.onText(/^\/start$/, function (msg){
                     throw new Error("could not connect to db, try again.");
                 });
             }
+        }).then(() => {
+            logger.info("Admin: %s start drop game in chat id %s", username, chatId);
+            var response = ["OK " + username + "!"];
+            response.push("Now start auto-drop game in this chat :)");
+
+            bot.sendMessage(chatId, response.join('\n'),{
+                'parse_mode': 'Markdown',
+                'selective': 2
+            });
+
+            chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
+            chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
         }).catch((err) => {
             replyWithError(chatId, err);
         });
@@ -128,19 +128,38 @@ bot.onText(/^\/stop$/, function (msg){
     var username = msg.from.username;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
+    var chatTitle = msg.chat.title;
 
     if(isGroupChatType(chatType) && isAdmin(username)){
-        var response = ["Hello " + username + "!"];
-        response.push("Now stop auto-drop game in this chat :)")
-        bot.sendMessage(chatId, response.join('\n'),{
-            'parse_mode': 'Markdown',
-            'selective': 2
+        getChatIdExistPromise(chatId).then((isExist) => {
+            if(!isExist){
+                throw new Error("Auto-Drop game is not starting!");
+            }else{
+                return pool.query("DELETE FROM chatgroup where chat_id = $1",[chatId]).then((res) => {
+                    logger.debug("Delete chat_id: %s, chat_title: %s success",chatId, chatTitle);
+                }).catch((err) => {
+                    logger.error("Delete chat_id: %s, chat_title: %s error", chatId, chatTitle);
+                    logger.error('Delete error: ', err.message, err.stack);
+                    throw new Error("could not connect to db!, try again.")
+                })
+            }
+        }).then(() => {
+            logger.info("user: %s stop drop game in chat id: %s", username, chatId);
+            var response = ["OK " + username + "!"];
+            response.push("Now stop auto-drop game in this chat :)")
+            bot.sendMessage(chatId, response.join('\n'),{
+                'parse_mode': 'Markdown',
+                'selective': 2
+            });
+            cache.del(chatId);
+            _.forEach(chat.get(chatId).get("rule"), function(rule){
+                rule.cancel();
+            });
+            chat.delete(chatId);
+
+        }).catch((err) => {
+            replyWithError(chatId, err);
         });
-        _.forEach(chat.get(chatId).get("rule"), function(rule){
-            rule.cancel();
-        });
-        chat.delete(chatId);
-        logger.debug("user: %s stop drop game in chat id: %s", username, chatId);
     }
 
 });
