@@ -51,22 +51,33 @@ bot.onText(/^\/start$/, function (msg){
     var username = msg.from.username;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-
+    var chatTitle = msg.chat.title;
     if(isGroupChatType(chatType) && isAdmin(username)){
-        logger.info("user: %s start drop game in chat id %s", username, chatId);
-        var response = ["Hello " + username + "!"];
-        response.push("Now start auto-drop game in this chat :)");
+        getChatIdExistPromise(chatId).then((isExist) => {
+            if(isExist){
+                bot.sendMessage(chatId, "Auto-Drop game is already starting!");
+            }else{
+                logger.info("Admin: %s start drop game in chat id %s", username, chatId);
+                var response = ["OK " + username + "!"];
+                response.push("Now start auto-drop game in this chat :)");
 
-        bot.sendMessage(chatId, response.join('\n'),{
-            'parse_mode': 'Markdown',
-            'selective': 2
+                bot.sendMessage(chatId, response.join('\n'),{
+                    'parse_mode': 'Markdown',
+                    'selective': 2
+                });
+
+                chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
+                chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
+
+                pool.query("INSERT INTO chatgroup(chat_id, chat_title) values($1, $2)", [chatId, chatTitle]).then((res) => {
+                    logger.debug("Insert chat_id: %s, chat_title: %s success",chatId, chatTitle);
+                }).catch((err) => {
+                    logger.error("Insert chat_id: %s, chat_title: %s error", chatId, chatTitle);
+                    logger.error('Insert error: ', e.message, e.stack);
+                });
+            }
         });
-
-        chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
-        chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
-
     }
-
 })
 
 bot.onText(/^\/pin$/, function (msg){
