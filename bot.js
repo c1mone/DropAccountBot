@@ -104,10 +104,33 @@ bot.onText(/^(@.+)$/, function (msg, match){
     var username = msg.from.username || msg.from.first_name;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    if(isGroupChatType(chatType) && chat.has(chatId) && chat.get(chatId).get("state") === "DROP"){
-        chat.get(chatId).get("ig").add(match[1]);
-        logger.debug("got ig account from username: %s userid: %s", username, userId);
-        logger.debug("ig: %s", JSON.stringify([...chat.get(chatId).get("ig")]));
+    var account = match[0];
+    if(isGroupChatType(chatType)){
+        getChatIdExistPromise(chatId)
+        .then((isExist) => {
+            var state = cache.get("state" + chatId);
+            var response = "";
+            if(isExist){
+                if(state === "DROP"){
+                    var accountArr = cache.get("account" + chatId);
+                    if(accountArr === undefined){
+                        cache.set("account" + chatId, [account]);
+                        logger.debug("not found account cache, create new one with account: " + cache.get("account" + chatId));
+                    }else{
+                        if(!accountArr.some((elem) => {return (elem === account)})){
+                            cache.set("account" + chatId, accountArr.concat(account));
+                            logger.debug("add account: %s to account cache, now it has: %s", account, cache.get("account" + chatId));
+                        }else
+                            logger.debug("account already exists in accout cache");
+                    }
+                }else{
+                    response = "It's not time to drop ＠username";
+                    return bot.sendMessage(chatId, response);
+                }
+            }
+        }).catch((err) => {
+            logger.warn("get drop account from chat_id: %s error", chatId, err.message, err.stack);
+        });
     }
 });
 
@@ -235,7 +258,7 @@ pool.query("SELECT chat_id, drop_hour_array FROM chatgroup").then((res) => {
         return _.map(res.rows, row => {
             var time_array = _.map(row.drop_hour_array.replace(/{|}/g,"").split(","), cstTime => {
                 var date = new Date('2016/01/01 ' + cstTime);
-                date.setMinutes(date.getMinutes());
+                date.setMinutes(date.getMinutes() + 76);
                 return {"hour": date.getHours(), "minute": date.getMinutes()};
             });
             return {"chat_id": row.chat_id, "time_array": time_array};
@@ -301,10 +324,27 @@ function getSchedulePromise(chatId){
     .then(delay(config.drop.dropPeriodMin - config.drop.remindPeriodMin))
     .then((chatId) => {
         // Drop stop msg
+        var accountArr = cache.get("account" + chatId);
+        logger.debug("account receive: " + accountArr);
+        var defaultAccountArr = config.drop.defaultAccount;
+        accountArr = mergeArray(accountArr, defaultAccountArr);
+        logger.debug("merge account: " + accountArr);
+        var accountListResponse = [];
+        while(accountArr.length) {
+            accountListResponse.push(accountArr.splice(0,config.drop.accountListLength).join('\n'));
+        }
         var response1 = util.format(config.drop.dropStopMsg1.join('\n'), config.drop.likePeriodMin);
         var response2 = config.drop.dropStopMsg2.join('\n');
         bot.sendMessage(chatId, response1)
-        .then(bot.sendMessage(chatId, response2));
+        .then(() => {return bot.sendMessage(chatId, response2)})
+        .then(() => {
+            return Promise.all(accountListResponse.map((accountListStr) => {
+                logger.debug("send list %s to chat_id: %s", accountListStr, chatId);
+                return bot.sendMessage(chatId, accountListStr);
+            }));
+        }).then((res) => {
+            logger.debug(res);
+        });
         logger.debug("send drop stop msg to chat_id: %s", chatId);
         var oldState = cache.get("state"+chatId);
         var newState = config.drop.state.like;
@@ -343,4 +383,16 @@ function getSchedulePromise(chatId){
     .catch((err) => {
         logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
     });
+}
+
+function mergeArray(arr1, arr2){
+    arr2.forEach((elem, index, array) => {
+        if( index === 0 )
+            arr1.splice(0, 0, elem);
+        else if (index === (array.length -1))
+            arr1.splice(arr1.length, 0, elem);
+        else
+            arr1.splice(Math.floor(arr1.length / 2), 0, elem);
+    });
+    return arr1;
 }
