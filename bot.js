@@ -83,11 +83,18 @@ bot.onText(/^\/pin$/, function (msg){
     var username = msg.from.username;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    var response = util.format(config.bot.pinnedMsg.join("\n"), "\u{2757} \u{2757} \u{2757}","\u{2757} \u{2757} \u{2757}");
-    if(isChatIdExist(chatId) && isGroupChatType(chatType) && isAdmin(username)){
-        bot.sendMessage(chatId, response,{
-            'parse_mode': 'Markdown',
-            'selective': 2
+    var response = util.format(config.drop.pinnedMsg.join("\n"), "\u{2757} \u{2757} \u{2757}","\u{2757} \u{2757} \u{2757}");
+    if(isGroupChatType(chatType) && isAdmin(username)){
+        getChatIdExistPromise(chatId)
+        .then((isExist) => {
+            if(isExist){
+                return bot.sendMessage(chatId, response,{
+                    'parse_mode': 'Markdown',
+                    'selective': 2
+                });
+            }
+        }).catch((err) => {
+            logger.warn("send pinned msg to chat_id: %s error", chatId, err.message, err.stack);
         });
     }
 });
