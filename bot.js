@@ -113,12 +113,15 @@ bot.onText(/^(@.+)$/, function (msg, match){
             if(isExist){
                 if(state === "DROP"){
                     var accountArr = cache.get("account" + chatId);
+                    var userArr = cache.get("user" + chatId);
                     if(accountArr === undefined){
                         cache.set("account" + chatId, [account]);
+                        cache.set("user" + chatId, [userId + account + "@" + username]);
                         logger.debug("not found account cache, create new one with account: " + cache.get("account" + chatId));
                     }else{
                         if(!accountArr.some((elem) => {return (elem === account)})){
                             cache.set("account" + chatId, accountArr.concat(account));
+                            cache.set("user" + chatId, userArr.concat(userId + account + "@" + username));
                             logger.debug("add account: %s to account cache, now it has: %s", account, cache.get("account" + chatId));
                         }else
                             logger.debug("account already exists in accout cache");
@@ -338,10 +341,12 @@ function getSchedulePromise(chatId){
         bot.sendMessage(chatId, response1)
         .then(() => {return bot.sendMessage(chatId, response2)})
         .then(() => {
-            return Promise.all(accountListResponse.map((accountListStr) => {
-                logger.debug("send list %s to chat_id: %s", accountListStr, chatId);
-                return bot.sendMessage(chatId, accountListStr);
-            }));
+            if(accountArr.length > 0){
+                return Promise.all(accountListResponse.map((accountListStr) => {
+                    logger.debug("send list %s to chat_id: %s", accountListStr, chatId);
+                    return bot.sendMessage(chatId, accountListStr);
+                }));
+            }
         }).then((res) => {
             logger.debug(res);
         });
@@ -349,6 +354,7 @@ function getSchedulePromise(chatId){
         var oldState = cache.get("state"+chatId);
         var newState = config.drop.state.like;
         cache.set("state"+chatId, newState, 0);
+        cache.del("account"+chatId);
         logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
         return chatId;
     })
