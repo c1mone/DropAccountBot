@@ -69,14 +69,10 @@ bot.onText(/^\/start$/, function (msg){
             logger.info("Admin: %s start drop game in chat id %s", username, chatId);
             var response = ["OK " + username + "!"];
             response.push("Now start auto-drop game in this chat :)");
-
             bot.sendMessage(chatId, response.join('\n'),{
                 'parse_mode': 'Markdown',
                 'selective': 2
             });
-
-            chat.set(chatId, new Map().set("state", "IDLE").set("ig", new Set()).set("done", new Set()).set("user", new Set()));
-            chat.get(chatId).set("rule", createDefaultScheduleArray(chatId));
         }).catch((err) => {
             replyWithError(chatId, err);
         });
@@ -87,7 +83,7 @@ bot.onText(/^\/pin$/, function (msg){
     var username = msg.from.username;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    var response = util.format(config.bot.pinnedMsg.join("\n"), "\u{2757}\u{2757}\u{2757}","\u{2757}\u{2757}\u{2757}");
+    var response = util.format(config.bot.pinnedMsg.join("\n"), "\u{2757} \u{2757} \u{2757}","\u{2757} \u{2757} \u{2757}");
     if(isChatIdExist(chatId) && isGroupChatType(chatType) && isAdmin(username)){
         bot.sendMessage(chatId, response,{
             'parse_mode': 'Markdown',
@@ -152,10 +148,6 @@ bot.onText(/^\/stop$/, function (msg){
                 'selective': 2
             });
             cache.del(chatId);
-            _.forEach(chat.get(chatId).get("rule"), function(rule){
-                rule.cancel();
-            });
-            chat.delete(chatId);
 
         }).catch((err) => {
             replyWithError(chatId, err);
@@ -184,66 +176,6 @@ bot.on('message', function(msg) {
         }
     }
 });
-
-function createDefaultScheduleArray(chatId){
-    var ruleArray = [];
-    _.forEach(config.drop.dropStartTime.hour, function(configHour){
-        var configMinute = config.drop.dropStartTime.minute;
-        var j = schedule.scheduleJob({hour: configHour, minute: configMinute}, function dropStartFunction(){
-            var respone = util.format(config.drop.dropStartMsg, config.drop.dropPeriodMin);
-            bot.sendMessage(chatId, respone, {
-                'parse_mode': 'Markdown',
-                'selective': 2
-            });
-            chat.get(chatId).set("state", "DROP");
-            logger.debug("chatId : %s at drop start time, change state to : %s", chatId, chat.get(chatId).get("state"));
-            setTimeout(dropStopFunction, config.drop.dropPeriodMin * 60 * 1000, chatId);
-        });
-        ruleArray.push(j);
-    });
-    return ruleArray;
-}
-
-function dropStopFunction(chatId){
-    var response = [util.format(config.drop.dropStopMsg, config.drop.likePeriodMin)].concat([...chat.get(chatId).get("ig")]);
-
-    bot.sendMessage(chatId, response.join('\n'), {
-        'parse_mode': 'Markdown',
-        'selective': 2
-    });
-    chat.get(chatId).set("state", "LIKE");
-    chat.get(chatId).get("ig").clear();
-    chat.get(chatId).set("ig", new Set());
-    logger.debug("chatId : %s at drop stop time, change state to : %s", chatId, chat.get(chatId).get("state"));
-    setTimeout(warnFunction, config.drop.likePeriodMin * 60 * 1000, chatId);
-}
-
-function warnFunction(chatId){
-    var response = [util.format(config.drop.warnMsg, config.drop.warnPeriodMin)]
-    .concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
-
-    bot.sendMessage(chatId, response.join("\n"), {
-        'parse_mode': 'Markdown',
-        'selective': 2
-    });
-    chat.get(chatId).set("state", "WARN");
-    logger.debug("chatId : %s at warn time, change state to : %s", chatId, chat.get(chatId).get("state"));
-    setTimeout(banFunction, config.drop.warnPeriodMin * 60 * 1000, chatId);
-}
-
-function banFunction(chatId){
-    var response = [config.drop.banMsg]
-    .concat([...chat.get(chatId).get("user")].filter( x => !chat.get(chatId).get("done").has(x)));
-    bot.sendMessage(chatId, response.join("\n"), {
-        'parse_mode': 'Markdown',
-        'selective': 2
-    });
-    chat.get(chatId).set("state", "IDLE");
-    chat.get(chatId).get("done").clear();
-    chat.get(chatId).set("done", new Set());
-    logger.debug("chatId : %s at ban time, change state to : %s", chatId, chat.get(chatId).get("state"));
-}
-
 
 function replyWithError(chatId, err) {
     logger.warn('chat id: %s, message: %s', chatId, err.message);
@@ -289,4 +221,119 @@ function isGroupChatType(chatType) {
         return true;
     else
         return false;
+}
+
+pool.query("SELECT chat_id, drop_hour_array FROM chatgroup").then((res) => {
+    if(res.rowCount > 0){
+        return _.map(res.rows, row => {
+            var time_array = _.map(row.drop_hour_array.replace(/{|}/g,"").split(","), cstTime => {
+                var date = new Date('2016/01/01 ' + cstTime);
+                date.setMinutes(date.getMinutes());
+                return {"hour": date.getHours(), "minute": date.getMinutes()};
+            });
+            return {"chat_id": row.chat_id, "time_array": time_array};
+        });
+    }else
+        throw new Error("no starting group.");
+}).then(rows => {
+    logger.debug("schedule time with chat_id ", rows);
+    _.forEach(rows, row => {
+        var scheduleArr = _.map(row.time_array, time => {
+            var j = schedule.scheduleJob(time, function(){
+                getSchedulePromise(row.chat_id);
+            });
+            return j;
+        });
+        cache.set('schedule' + row.chat_id, scheduleArr, 0);
+        cache.set('state' + row.chat_id, config.drop.state.idle, 0);
+        cache.set(row.chat_id, true, 0);
+    });
+}).catch((err) => {
+    logger.warn("load stored time schedule error", err.message, err.stack);
+});
+
+function delay(min){
+    return function(chatId){
+        return new Promise( resolve => {
+            setTimeout( () => {
+                resolve(chatId);
+            }, min * 60 * 1000);
+        });
+    }
+}
+function getSchedulePromise(chatId){
+    var link = "QQ";
+    return Promise.resolve(chatId)
+    .then((chatId) => {
+        // Round start msg
+        var response = util.format(config.drop.roundStartMsg.join('\n'), config.drop.roundStartPeriodMin, link);
+        bot.sendMessage(chatId, response);
+        logger.debug("send round start msg to chat_id: %s", chatId);
+        return chatId;
+    })
+    .then(delay(config.drop.roundStartPeriodMin))
+    .then((chatId) => {
+        // Drop start msg
+        var response = util.format(config.drop.dropStartMsg.join('\n'), "\u{1f4b0} \u{1f4b0} \u{1f4b0} \u{1f4b0}", config.drop.dropPeriodMin, link);
+        bot.sendMessage(chatId, response);
+        logger.debug("send drop start msg to chat_id: %s", chatId);
+        var oldState = cache.get("state"+chatId);
+        var newState = config.drop.state.drop;
+        cache.set("state"+chatId, newState, 0);
+        logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
+        return chatId;
+    })
+    .then(delay(config.drop.remindPeriodMin))
+    .then((chatId) => {
+        // Remind drop msg
+        var response = util.format(config.drop.remindMsg.join('\n'), "\u{2757} \u{2757} \u{2757} \u{2757}", "\u{1f4b0} \u{1f4b0} \u{1f4b0} \u{1f4b0}", link, link, link);
+        bot.sendMessage(chatId, response);
+        logger.debug("send remind drop msg to chat_id: %s", chatId);
+        return chatId;
+    })
+    .then(delay(config.drop.dropPeriodMin - config.drop.remindPeriodMin))
+    .then((chatId) => {
+        // Drop stop msg
+        var response1 = util.format(config.drop.dropStopMsg1.join('\n'), config.drop.likePeriodMin);
+        var response2 = config.drop.dropStopMsg2.join('\n');
+        bot.sendMessage(chatId, response1)
+        .then(bot.sendMessage(chatId, response2));
+        logger.debug("send drop stop msg to chat_id: %s", chatId);
+        var oldState = cache.get("state"+chatId);
+        var newState = config.drop.state.like;
+        cache.set("state"+chatId, newState, 0);
+        logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
+        return chatId;
+    })
+    .then(delay(config.drop.warnPeriodMin1))
+    .then((chatId) => {
+        // Warn msg 1
+        var response = config.drop.warnMsg;
+        bot.sendMessage(chatId, response.join('\n'));
+        logger.debug("send warn msg1 to chat_id: %s", chatId);
+        return chatId;
+    })
+    .then(delay(config.drop.warnPeriodMin2 - config.drop.warnPeriodMin1))
+    .then((chatId) => {
+        // Warn msg 2
+        var response = config.drop.warnMsg;
+        bot.sendMessage(chatId, response.join('\n'));
+        logger.debug("send warn msg2 to chat_id: %s", chatId);
+        return chatId;
+    })
+    .then(delay(config.drop.likePeriodMin - config.drop.warnPeriodMin2))
+    .then((chatId) => {
+        // Drop stop msg
+        var response = util.format(config.drop.roundStopMsg.join('\n'), link);
+        bot.sendMessage(chatId, response);
+        logger.debug("send round stop msg to chat_id: %s", chatId);
+        var oldState = cache.get("state"+chatId);
+        var newState = config.drop.state.idle;
+        cache.set("state"+chatId, newState, 0);
+        logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
+        return chatId;
+    })
+    .catch((err) => {
+        logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
+    });
 }
