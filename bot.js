@@ -21,7 +21,6 @@ const cache       = new NodeCache({ stdTTL: 4800, checkperiod: 180 });
 
 const Pool          = require('pg-pool');
 const url           = require('url');
-console.log(process.env.DATABASE_URL);
 const params        = url.parse(process.env.DATABASE_URL);
 const auth          = params.auth.split(':');
 const herokuPgConfig = {
