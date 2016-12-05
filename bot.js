@@ -123,6 +123,7 @@ bot.onText(/^(@.+)$/, function (msg, match){
                             cache.set("account" + chatId, accountArr.concat(account));
                             cache.set("user" + chatId, userArr.concat(userId + account + "@" + username));
                             logger.debug("add account: %s to account cache, now it has: %s", account, cache.get("account" + chatId));
+                            return bot.sendMessage(chatId, "You're done with " + account + "!");
                         }else
                             logger.debug("account already exists in accout cache");
                     }
