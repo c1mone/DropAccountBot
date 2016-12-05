@@ -123,7 +123,6 @@ bot.onText(/^(@.+)$/, function (msg, match){
                             cache.set("account" + chatId, accountArr.concat(account));
                             cache.set("user" + chatId, userArr.concat(userId + account + "@" + username));
                             logger.debug("add account: %s to account cache, now it has: %s", account, cache.get("account" + chatId));
-                            return bot.sendMessage(chatId, "You're done with " + account + "!");
                         }else
                             logger.debug("account already exists in accout cache");
                     }
@@ -160,6 +159,7 @@ bot.onText(/^D (@.+)$/, function(msg, match) {
                         });
                         cache.set("user"+chatId, userArrF);
                         logger.debug("remove userId: %s, username: %s, account: %s, now it has %s", userId, username, account, userArrF);
+                        return bot.sendMessage(chatId, "You're done with " + account + "!");
                     }
                 }else{
                     response = "It's not time to send done D ＠username";
