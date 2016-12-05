@@ -215,21 +215,19 @@ bot.onText(/^\/stop$/, function (msg){
 bot.on('message', function(msg) {
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    if(isGroupChatType(chatType) && chat.has(chatId)){
-        if(msg.new_chat_member !== undefined){
-            var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
-            var userId = msg.new_chat_member.id;
-            chat.get(chatId).get("user").add(username);
-            logger.debug("new member chatId: %s username: %s userid: %s", chatId, username, userId);
-            logger.debug("chatId: %s member list %s", chatId, JSON.stringify([...chat.get(chatId).get("user")]));
-        }
-        if(msg.left_chat_member !== undefined){
-            var username = msg.left_chat_member.username || msg.left_chat_member.first_name;
-            var userId = msg.left_chat_member.id;
-            chat.get(chatId).get("user").delete(username);
-            logger.debug("left member chatId: %s username: %s userid: %s", chatId, username, userId);
-            logger.debug("chatId: %s member list %s", chatId, JSON.stringify([...chat.get(chatId).get("user")]));
-        }
+    // console.log(msg);
+    if(isGroupChatType(chatType)){
+        getChatIdExistPromise(chatId).then((isExist) => {
+            if(isExist){
+                if(msg.new_chat_member !== undefined){
+                    var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
+                    var response = util.format(config.drop.newMemberMsg.join("\n"), username);
+                    return bot.sendMessage(chatId, response);
+                }
+            }
+        }).catch((err) => {
+            logger.warn("get new/left member from chat_id: %s error", chatId, err.message, err.stack);
+        });
     }
 });
 
