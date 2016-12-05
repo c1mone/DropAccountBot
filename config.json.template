@@ -3,20 +3,73 @@
         "botToken": ""
     } ,
     "bot": {
-        "adminUserName": "",
-        "pinnedMsg": ["Group Rule!","1. Drop%s", "2. Like%s"]
+        "adminUserName": ""
     },
     "drop": {
-        "dropStartTime": {
-            "hour": [0, 4, 8, 12, 16, 20],
-            "minute": 0
+        "roundStartPeriodMin": 1,
+        "remindPeriodMin": 1,
+        "dropPeriodMin" : 2,
+        "warnPeriodMin1" : 1,
+        "warnPeriodMin2" : 2,
+        "likePeriodMin" : 3,
+        "state": {
+            "idle": "IDLE",
+            "drop": "DROP",
+            "like": "LIKE"
         },
-        "dropPeriodMin" : 20,
-        "likePeriodMin" : 60,
-        "warnPeriodMin" : 20,
-        "dropStartMsg": "Drop Start!\n You have %s minute to drop your account!",
-        "dropStopMsg": "Drop Stop!\n You have %s minute to like everyone on the list!",
-        "warnMsg": "Following accounts are not done!\nYou have %s minute to finish!",
-        "banMsg": "Following accounts are not done: !!!!!"
+        "timeOffset": 11,
+        "accountListLength": 3,
+        "defaultAccount": [""],
+        "pinnedMsg": ["Rules %s.\n1. No leaching, skipping users in engagement rounds.\n2. No talking in this chat.\n3. No promoting other groups.\n4. Be respectful! Inability to follow these rules will get a warning and 3/3 warnings you will be banned, without exception.",
+            "Rounds %s\nThere will be 5 rounds each day at the following times, hosted by the admins.",
+            "We are following CST – Central Standard Time (Standard Time)",
+            "1st round: 00:00 AM CST",
+        "2nd round:03:00 AM CST",
+        "3rd round:06:00 AM CST",
+        "4th round:09:00 AM CST",
+        "5th round:12:00 PM CST",
+        "6th round:15:00 PM CST",
+        "7th round:18:00 PM CST",
+        "8th round:21:00 PM CST",
+        "STEP 1 —> The bot will ask you to drop your @username after the admin says drop username or it won't be counted! Type your Instagram username in and drop it once the bot says. This will be approximately 20 minutes before the big round at :40. For example: Round 1 is scheduled for 9am CST, drops will start around 08:40 am CST.",
+        "STEP 2 —> The bot will make a list manually. Copy paste these lists, DM it to yourself and like on the most recent three posts of that account.",
+        "STEP 3 —> When you are done, comment a D in the rounds chat with the username you liked with. For example: 'D @globevacations'. If you do put a D without finishing the lists and the admins see it, it will result in temporarily banned and will have to PM @Admin to get back in."],
+        "roundStartMsg": ["New round in %s minutes .",
+            "Get ready! ",
+            "Let people know a round is happening!",
+            " Invite Link: %s"],
+        "dropStartMsg": ["DROP DROP DROP DROP %s",
+            "Round is starting!",
+            "Drop your @usernames now .",
+            "Do NOT add anything after @username .",
+            "List will drop in %s minutes. ",
+            " Invite more people! ",
+            "Invite link: %s"],
+        "remindMsg": ["Keep dropping %s",
+                "DROP DROP DROP DROP %s",
+                "Ｗelcome!",
+                "Like :  %s",
+                "Comments:  %s",
+                "Discussion:  %s"],
+        "dropStopMsg1": ["Drop Stop!",
+            "D @username when done.",
+            " Like latest photo from ALL lists. ",
+            "*****",
+            " You have %s minutes to engage."],
+        "dropStopMsg2": ["* DON'T LEECH ",
+            "* When done, write D @username. ",
+            "* You will get a warn if you D wrong and potentially get added to the leechlist.",
+            "* 3/3 Warns = Ban"],
+        "warnMsg": ["** If you don’t D or D correctly by the end of the round, you will be temporarily banned and will have to PM @Admin to get back in .",
+            "Following accounts are not done :"],
+        "roundStopMsg": ["Round has ended.",
+            " ** If you don’t D or D correctly by the end of the round, you will be temporarily banned and will have to PM @Admin to get back in.",
+            " If you haven't finished by now, you may be blacklisted.",
+            " ** Next round is in 1 hour. ",
+            "Invite new members!",
+            "Invite link: %s"],
+        "newMemberMsg": ["Hi %s, welcome ! Check out the pinned message to read the rules before participating."],
+        "wrongDropMsg": ["It's not time to drop [＠username]"],
+        "wrongDoneMsg": ["It's not time to done [D ＠username]"]
     }
 }
