@@ -7,7 +7,12 @@ var util            = require('util');
 
 const config = require('./config.json');
 var logger = require(__dirname + '/lib/logger');
-var bot = new Bot(config.telegram.botToken, { polling: true });
+var bot;
+if(process.env.NODE_ENV === 'production') {
+    bot = new Bot(process.env.TOKEN, { polling: true });
+}else {
+    bot = new Bot(config.telegram.botToken, { polling: true });
+}
 
 /*
  * Set up node cache
