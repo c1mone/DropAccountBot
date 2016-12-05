@@ -362,7 +362,7 @@ function getSchedulePromise(chatId){
         .then(() => {
             if(accountArrLen > 0){
                 return Promise.all(accountListResponse.map((accountListStr) => {
-                    logger.debug("send list %s to chat_id: %s", accountListStr, chatId);
+                    logger.debug("send list %s to chat_id: %s", accountListStr.replace(/\n/, ","), chatId);
                     return bot.sendMessage(chatId, accountListStr);
                 }));
             }
