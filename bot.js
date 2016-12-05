@@ -13,7 +13,7 @@ var bot = new Bot(config.telegram.botToken, { polling: true });
  * Set up node cache
  */
 const NodeCache     = require("node-cache");
-const cache       = new NodeCache({ stdTTL: 3600, checkperiod: 180 });
+const cache       = new NodeCache({ stdTTL: 4800, checkperiod: 180 });
 
 /*
  * Postgres connection pool settings
@@ -347,6 +347,10 @@ function getSchedulePromise(chatId){
     .then((chatId) => {
         // Drop stop msg
         var accountArr = cache.get("account" + chatId);
+        if(accountArr === undefined){
+            bot.sendMessage(chatId, "No one join this round! Skip!");
+            throw new Error("no one join, skip this round");
+        }
         var accountArrLen = accountArr.length;
         logger.debug("account receive: " + accountArr);
         var defaultAccountArr = config.drop.defaultAccount;
@@ -361,12 +365,10 @@ function getSchedulePromise(chatId){
         bot.sendMessage(chatId, response1)
         .then(() => {return bot.sendMessage(chatId, response2)})
         .then(() => {
-            if(accountArrLen > 0){
-                return Promise.all(accountListResponse.map((accountListStr) => {
-                    logger.debug("send list %s to chat_id: %s", accountListStr.replace(/\n/, ","), chatId);
-                    return bot.sendMessage(chatId, accountListStr);
-                }));
-            }
+            return Promise.all(accountListResponse.map((accountListStr) => {
+                logger.debug("send list %s to chat_id: %s", accountListStr.replace(/\n/, ","), chatId);
+                return bot.sendMessage(chatId, accountListStr);
+            }));
         });
         logger.debug("send drop stop msg to chat_id: %s", chatId);
         var oldState = cache.get("state"+chatId);
@@ -469,7 +471,9 @@ function getSchedulePromise(chatId){
         }
     })
     .catch((err) => {
-        logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
+        if(err.message !== "no one join, skip this round"){
+            logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
+        }
     });
 }
 
