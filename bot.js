@@ -425,6 +425,48 @@ function getSchedulePromise(chatId){
         logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
         return chatId;
     })
+    .then((chatId) => {
+        // Send warn msg
+        // get username with account from cache
+        var userArr = cache.get("user" + chatId);
+        if(userArr !== undefined && userArr.length > 0){
+            // one user may have duplicate undone account, but we only calculate once.
+            var seen = {};
+            userArr = userArr.filter((elem) => {
+                var elemSplit = elem.split("@");
+                var userId = elemSplit.splice(0, 1).toString();
+                var account = elemSplit.splice(0, 1).toString();
+                var username = elemSplit.join("@");
+                return seen.hasOwnProperty(userId) ? false : (seen[userId] = true);
+            });
+            return Promise.all(userArr.map((elem) => {
+                var elemSplit = elem.split("@");
+                var userId = elemSplit.splice(0, 1).toString();
+                var account = elemSplit.splice(0, 1).toString();
+                var username = elemSplit.join("@");
+                return pool.query("INSERT INTO chatuser(chatuser_id, chat_id, user_id, username, warn_status) \
+                 values($1, $2, $3, $4, $5) ON CONFLICT (chatuser_id) \
+                 DO UPDATE SET warn_status = chatuser.warn_status + 1", [chatId + userId, chatId, userId, username, 1])
+                 .then((res) => logger.debug("insert not done user %s to db success", [chatId + userId, chatId, userId, username, 1]))
+                 .catch((err) => logger.warn("insert chat_id: %s not done user to db error", chatId, err.message, err.stack))
+                 .then(() => {return pool.query("SELECT warn_status from chatuser where chat_id = $1 and user_id = $2", [chatId, userId])})
+                 .then((res) => {
+                     var warnStatus = res.rows[0].warn_status;
+                     var warnResponse = "user: " + username + " has been warned (" + warnStatus + "/3)";
+                     var banResponse = "user: " + username + " got banned!";
+                     if(warnStatus >= 3)
+                         return bot.sendMessage(chatId, warnResponse).then(() => {
+                             bot.sendMessage(chatId,banResponse);
+                         });
+                     else
+                        return bot.sendMessage(chatId, warnResponse);
+                 })
+                 .catch((err) => {
+                     logger.warn("send user_id: %s in chat_id: %s warn msg error", chatId, err.message, err.stack);
+                 });
+            }));
+        }
+    })
     .catch((err) => {
         logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
     });
