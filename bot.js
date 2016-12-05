@@ -137,19 +137,37 @@ bot.onText(/^(@.+)$/, function (msg, match){
     }
 });
 
-bot.onText(/!done/, function(msg) {
+bot.onText(/^D (@.+)$/, function(msg, match) {
+    var userId = msg.from.id;
+    var username = msg.from.username || msg.from.first_name;
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    var username = msg.from.username || msg.from.first_name;
-    var userId = msg.from.id;
-    if(isGroupChatType(chatType) && chat.has(chatId) && (chat.get(chatId).get("state") === "LIKE" || chat.get(chatId).get("state") === "WARN")){
-        chat.get(chatId).get("done").add(username);
-        bot.sendMessage(chatId, "You're done!",{
-            'parse_mode': 'Markdown',
-            'selective': 2
+    var account = match[1];
+    if(isGroupChatType(chatType)){
+        getChatIdExistPromise(chatId)
+        .then((isExist) => {
+            var state = cache.get("state" + chatId);
+            var response = "";
+            if(isExist){
+                if(state === "LIKE"){
+                    var userArr = cache.get("user" + chatId);
+                    var userIdT = userId + account + "@" + username;
+                    logger.debug("new done user: %s, user cache: %s", userIdT, userArr);
+                    if(userArr !== undefined && userArr.some((elem) => {return (elem === userIdT)})){
+                        var userArrF = userArr.filter((elem) => {
+                            return (elem !== userIdT);
+                        });
+                        cache.set("user"+chatId, userArrF);
+                        logger.debug("remove userId: %s, username: %s, account: %s, now it has %s", userId, username, account, userArrF);
+                    }
+                }else{
+                    response = "It's not time to send done D ＠username";
+                    return bot.sendMessage(chatId, response);
+                }
+            }
+        }).catch((err) => {
+            logger.warn("get done account from chat_id: %s error", chatId, err.message, err.stack);
         });
-        logger.debug("got done from username: %s userid: %s", username, userId);
-        logger.debug("done: %s", JSON.stringify([...chat.get(chatId).get("done")]));
     }
 });
 
@@ -261,7 +279,7 @@ pool.query("SELECT chat_id, drop_hour_array FROM chatgroup").then((res) => {
         return _.map(res.rows, row => {
             var time_array = _.map(row.drop_hour_array.replace(/{|}/g,"").split(","), cstTime => {
                 var date = new Date('2016/01/01 ' + cstTime);
-                date.setMinutes(date.getMinutes() + 76);
+                date.setMinutes(date.getMinutes() + config.drop.timeOffset);
                 return {"hour": date.getHours(), "minute": date.getMinutes()};
             });
             return {"chat_id": row.chat_id, "time_array": time_array};
@@ -328,27 +346,26 @@ function getSchedulePromise(chatId){
     .then((chatId) => {
         // Drop stop msg
         var accountArr = cache.get("account" + chatId);
+        var accountArrLen = accountArr.length;
         logger.debug("account receive: " + accountArr);
         var defaultAccountArr = config.drop.defaultAccount;
-        accountArr = mergeArray(accountArr, defaultAccountArr);
-        logger.debug("merge account: " + accountArr);
+        var mergeAccountArr = mergeArray(accountArr, defaultAccountArr);
+        logger.debug("merge account: " + mergeAccountArr);
         var accountListResponse = [];
-        while(accountArr.length) {
-            accountListResponse.push(accountArr.splice(0,config.drop.accountListLength).join('\n'));
+        while(mergeAccountArr.length) {
+            accountListResponse.push(mergeAccountArr.splice(0,config.drop.accountListLength).join('\n'));
         }
         var response1 = util.format(config.drop.dropStopMsg1.join('\n'), config.drop.likePeriodMin);
         var response2 = config.drop.dropStopMsg2.join('\n');
         bot.sendMessage(chatId, response1)
         .then(() => {return bot.sendMessage(chatId, response2)})
         .then(() => {
-            if(accountArr.length > 0){
+            if(accountArrLen > 0){
                 return Promise.all(accountListResponse.map((accountListStr) => {
                     logger.debug("send list %s to chat_id: %s", accountListStr, chatId);
                     return bot.sendMessage(chatId, accountListStr);
                 }));
             }
-        }).then((res) => {
-            logger.debug(res);
         });
         logger.debug("send drop stop msg to chat_id: %s", chatId);
         var oldState = cache.get("state"+chatId);
@@ -361,17 +378,39 @@ function getSchedulePromise(chatId){
     .then(delay(config.drop.warnPeriodMin1))
     .then((chatId) => {
         // Warn msg 1
-        var response = config.drop.warnMsg;
-        bot.sendMessage(chatId, response.join('\n'));
-        logger.debug("send warn msg1 to chat_id: %s", chatId);
+        var userArr = cache.get("user" + chatId);
+        if(userArr !== undefined && userArr.length > 0){
+            // get username with account from cache
+            var userNameArr = userArr.map((elem) => {
+                var elemSplit = elem.split("@");
+                var userId = elemSplit.splice(0, 1);
+                var account = elemSplit.splice(0, 1);
+                var username = elemSplit.join("@");
+                return username + " with @" + account;
+            }).join("\n");
+            var response = config.drop.warnMsg.concat(userNameArr);
+            bot.sendMessage(chatId, response.join('\n'));
+            logger.debug("send warn msg1 to chat_id: %s", chatId);
+        }
         return chatId;
     })
     .then(delay(config.drop.warnPeriodMin2 - config.drop.warnPeriodMin1))
     .then((chatId) => {
         // Warn msg 2
-        var response = config.drop.warnMsg;
-        bot.sendMessage(chatId, response.join('\n'));
-        logger.debug("send warn msg2 to chat_id: %s", chatId);
+        var userArr = cache.get("user" + chatId);
+        if(userArr !== undefined && userArr.length > 0){
+            // get username with account from cache
+            var userNameArr = userArr.map((elem) => {
+                var elemSplit = elem.split("@");
+                var userId = elemSplit.splice(0, 1);
+                var account = elemSplit.splice(0, 1);
+                var username = elemSplit.join("@");
+                return username + " with @" + account;
+            }).join("\n");
+            var response = config.drop.warnMsg.concat(userNameArr);
+            bot.sendMessage(chatId, response.join('\n'));
+            logger.debug("send warn msg2 to chat_id: %s", chatId);
+        }
         return chatId;
     })
     .then(delay(config.drop.likePeriodMin - config.drop.warnPeriodMin2))
