@@ -54,7 +54,7 @@ bot.onText(/^\/start$/, function (msg){
     var chatType = msg.chat.type;
     var chatTitle = msg.chat.title;
     if(isGroupChatType(chatType) && isAdmin(username)){
-        getChatIdExistPromise(chatId).then((isExist) => {
+        isChatIdExist(chatId).then((isExist) => {
             if(isExist){
                 throw new Error("Auto-Drop game is already starting!");
             }else{
@@ -87,7 +87,7 @@ bot.onText(/^\/pin$/, function (msg){
     var chatType = msg.chat.type;
     var response = util.format(config.drop.pinnedMsg.join("\n"), "\u{2757} \u{2757} \u{2757}","\u{2757} \u{2757} \u{2757}");
     if(isGroupChatType(chatType) && isAdmin(username)){
-        getChatIdExistPromise(chatId)
+        isChatIdExist(chatId)
         .then((isExist) => {
             if(isExist){
                 return bot.sendMessage(chatId, response,{
@@ -108,7 +108,7 @@ bot.onText(/^(@[\w.]+)$/, function (msg, match){
     var chatType = msg.chat.type;
     var account = match[0];
     if(isGroupChatType(chatType)){
-        getChatIdExistPromise(chatId)
+        isChatIdExist(chatId)
         .then((isExist) => {
             var state = cache.get("state" + chatId);
             var response = config.drop.dropSuccessMsg;
@@ -148,7 +148,7 @@ bot.onText(/^D (@[\w.]+)$/, function(msg, match) {
     var chatType = msg.chat.type;
     var account = match[1];
     if(isGroupChatType(chatType)){
-        getChatIdExistPromise(chatId)
+        isChatIdExist(chatId)
         .then((isExist) => {
             var state = cache.get("state" + chatId);
             var response = util.format(config.drop.doneSuccessMsg, account);
@@ -185,7 +185,7 @@ bot.onText(/^\/stop$/, function (msg){
     var chatTitle = msg.chat.title;
 
     if(isGroupChatType(chatType) && isAdmin(username)){
-        getChatIdExistPromise(chatId).then((isExist) => {
+        isChatIdExist(chatId).then((isExist) => {
             if(!isExist){
                 throw new Error("Auto-Drop game is not starting!");
             }else{
@@ -219,7 +219,7 @@ bot.on('message', function(msg) {
     var chatType = msg.chat.type;
     // console.log(msg);
     if(isGroupChatType(chatType)){
-        getChatIdExistPromise(chatId).then((isExist) => {
+        isChatIdExist(chatId).then((isExist) => {
             if(isExist){
                 if(msg.new_chat_member !== undefined){
                     var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
@@ -244,7 +244,22 @@ function replyWithError(chatId, err) {
     })
 }
 
-function getChatIdExistPromise(chatId){
+function isAdmin(username) {
+    if(config.bot.adminUserName === username)
+        return true;
+    else
+        return false;
+}
+
+function isGroupChatType(chatType) {
+    if(chatType === "group" || chatType === "supergroup")
+        return true;
+    else
+        return false;
+}
+const delay = (min) => (chatId) => new Promise(resolve => setTimeout(() => resolve(chatId), min * 60 * 1000));
+
+const isChatIdExist = (chatId) => {
     return new Promise((resolve, reject) => {
         if(cache.get(chatId))
             resolve(true);
@@ -264,21 +279,6 @@ function getChatIdExistPromise(chatId){
         }
     });
 }
-
-function isAdmin(username) {
-    if(config.bot.adminUserName === username)
-        return true;
-    else
-        return false;
-}
-
-function isGroupChatType(chatType) {
-    if(chatType === "group" || chatType === "supergroup")
-        return true;
-    else
-        return false;
-}
-const delay = (min) => (chatId) => new Promise(resolve => setTimeout(() => resolve(chatId), min * 60 * 1000));
 
 const submitDropScheduleFromDB = (chatId) => {
     var queryStatement = "SELECT chat_id, drop_hour_array FROM chatgroup";
