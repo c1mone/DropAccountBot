@@ -40,13 +40,10 @@ const pool = new Pool(herokuPgConfig);
 
 logger.info('bot server started...');
 
-bot.onText(/^\/say_hello (.+)$/, function (msg, match) {
+bot.onText(/^\/echo (.+)$/, function (msg, match) {
   var name = match[1];
   var chatId = msg.chat.id;
-  console.log(isChatIdExist(chatId));
-  bot.sendMessage(msg.chat.id, 'Hello ' + name + '!').then(function () {
-
-  });
+  bot.sendMessage(msg.chat.id, 'Hello ' + name + '!');
 });
 
 var chat = new Map();
@@ -103,7 +100,7 @@ bot.onText(/^\/pin$/, function (msg){
     }
 });
 
-bot.onText(/^(@.+)$/, function (msg, match){
+bot.onText(/^(@[\w.]+)$/, function (msg, match){
     var userId = msg.from.id;
     var username = msg.from.username || msg.from.first_name;
     var chatId = msg.chat.id;
@@ -113,7 +110,7 @@ bot.onText(/^(@.+)$/, function (msg, match){
         getChatIdExistPromise(chatId)
         .then((isExist) => {
             var state = cache.get("state" + chatId);
-            var response = "";
+            var response = config.drop.dropSuccessMsg;
             if(isExist){
                 if(state === "DROP"){
                     var accountArr = cache.get("account" + chatId);
@@ -127,13 +124,15 @@ bot.onText(/^(@.+)$/, function (msg, match){
                             cache.set("account" + chatId, accountArr.concat(account));
                             cache.set("user" + chatId, userArr.concat(userId + account + "@" + username));
                             logger.debug("add account: %s to account cache, now it has: %s", account, cache.get("account" + chatId));
-                        }else
+                        }else{
+                            response = config.drop.dropExistMsg;
                             logger.debug("account already exists in accout cache");
+                        }
                     }
                 }else{
-                    response = "It's not time to drop ＠username";
-                    return bot.sendMessage(chatId, response);
+                    response = config.drop.dropWrongTimeMsg;
                 }
+                return bot.sendMessage(chatId, response);
             }
         }).catch((err) => {
             logger.warn("get drop account from chat_id: %s error", chatId, err.message, err.stack);
@@ -141,7 +140,7 @@ bot.onText(/^(@.+)$/, function (msg, match){
     }
 });
 
-bot.onText(/^D (@.+)$/, function(msg, match) {
+bot.onText(/^D (@[\w.]+)$/, function(msg, match) {
     var userId = msg.from.id;
     var username = msg.from.username || msg.from.first_name;
     var chatId = msg.chat.id;
@@ -151,7 +150,7 @@ bot.onText(/^D (@.+)$/, function(msg, match) {
         getChatIdExistPromise(chatId)
         .then((isExist) => {
             var state = cache.get("state" + chatId);
-            var response = "";
+            var response = util.format(config.drop.doneSuccessMsg, account);
             if(isExist){
                 if(state === "LIKE"){
                     var userArr = cache.get("user" + chatId);
@@ -163,12 +162,14 @@ bot.onText(/^D (@.+)$/, function(msg, match) {
                         });
                         cache.set("user"+chatId, userArrF);
                         logger.debug("remove userId: %s, username: %s, account: %s, now it has %s", userId, username, account, userArrF);
-                        return bot.sendMessage(chatId, "You're done with " + account + "!");
+                    }else {
+                        response = config.drop.doneFailMsg;
                     }
                 }else{
-                    response = "It's not time to send done D ＠username";
-                    return bot.sendMessage(chatId, response);
+                    response = config.drop.doneWrongTimeMsg;
+
                 }
+                return bot.sendMessage(chatId, response);
             }
         }).catch((err) => {
             logger.warn("get done account from chat_id: %s error", chatId, err.message, err.stack);
