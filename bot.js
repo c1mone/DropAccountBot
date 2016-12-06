@@ -60,6 +60,7 @@ bot.onText(/^\/start$/, function (msg){
             }else{
                 return pool.query("INSERT INTO chatgroup(chat_id, chat_title) values($1, $2)", [chatId, chatTitle]).then((res) => {
                     logger.debug("Insert chat_id: %s, chat_title: %s success",chatId, chatTitle);
+                    submitDropScheduleFromDB(chatId);
                 }).catch((err) => {
                     logger.error("Insert chat_id: %s, chat_title: %s error", chatId, chatTitle);
                     logger.error('Insert error: ', err.message, err.stack);
@@ -277,39 +278,41 @@ function isGroupChatType(chatType) {
     else
         return false;
 }
-
-pool.query("SELECT chat_id, drop_hour_array FROM chatgroup").then((res) => {
-    if(res.rowCount > 0){
-        return _.map(res.rows, row => {
-            var time_array = _.map(row.drop_hour_array.replace(/{|}/g,"").split(","), cstTime => {
-                var date = new Date('2016/01/01 ' + cstTime);
-                date.setMinutes(date.getMinutes() + config.drop.timeOffset);
-                return {"hour": date.getHours(), "minute": date.getMinutes()};
-            });
-            return {"chat_id": row.chat_id, "time_array": time_array};
-        });
-    }else
-        throw new Error("no starting group.");
-}).then(rows => {
-    logger.debug("schedule time with chat_id ", rows);
-    _.forEach(rows, row => {
-        var scheduleArr = _.map(row.time_array, time => {
-            var j = schedule.scheduleJob(time, function(){
-                getSchedulePromise(row.chat_id);
-            });
-            return j;
-        });
-        cache.set('schedule' + row.chat_id, scheduleArr, 0);
-        cache.set('state' + row.chat_id, config.drop.state.idle, 0);
-        cache.set(row.chat_id, true, 0);
-    });
-}).catch((err) => {
-    logger.warn("load stored time schedule error", err.message, err.stack);
-});
-
 const delay = (min) => (chatId) => new Promise(resolve => setTimeout(() => resolve(chatId), min * 60 * 1000));
 
-function getSchedulePromise(chatId){
+const submitDropScheduleFromDB = (chatId) => {
+    var queryStatement = "SELECT chat_id, drop_hour_array FROM chatgroup";
+    if(chatId !== undefined)
+        queryStatement = queryStatement + " WHERE chat_id = " + chatId;
+    pool.query(queryStatement)
+    .then((res) => {
+        if(res.rowCount > 0){
+            return Promise.all(res.rows.map(row => {
+                var chatId = row.chat_id;
+                var dropTimeArr = row.drop_hour_array.replace(/{|}/g,"").split(",");
+                var dropScheduleTimeArr = dropTimeArr.map(dbTime => {
+                    var date = new Date('2016/01/01 ' + dbTime);
+                    date.setMinutes(date.getMinutes() + config.drop.timeOffset);
+                    return {"hour": date.getHours(), "minute": date.getMinutes()};
+                });
+                var dropScheduleJobArr = dropScheduleTimeArr.map((dropTime) => {
+                    return schedule.scheduleJob(dropTime, () => getScheduleJobPromise(chatId));
+                });
+                cache.set('schedule' + chatId, dropScheduleJobArr, 0);
+                cache.set('state' + chatId, config.drop.state.idle, 0);
+                cache.set(chatId, true, 0);
+                logger.debug("schedule time wit chat_id", {"chatId": chatId,"dropScheduleTime": dropScheduleTimeArr});
+            }));
+        }else
+            throw new Error("no starting group.");
+    }).catch((err) => {
+        logger.warn("load stored time schedule error", err.message, err.stack);
+    });
+}
+
+submitDropScheduleFromDB();
+
+function getScheduleJobPromise(chatId){
     var link = "QQ";
     return Promise.resolve(chatId)
     .then((chatId) => {
