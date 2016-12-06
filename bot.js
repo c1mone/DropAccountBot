@@ -469,6 +469,7 @@ function getScheduleJobPromise(chatId){
             }));
         }
     })
+    .then((chatId) => {cache.del("user" + chatId);})
     .catch((err) => {
         var oldState = cache.get("state"+chatId);
         var newState = config.drop.state.idle;
