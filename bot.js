@@ -108,6 +108,14 @@ bot.onText(/^\/pin$/, function (msg){
     }
 });
 
+bot.onText(/^\/link https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*)$/, (msg, match) => {
+    var chatId = msg.chat.id;
+    var link = match[0].split(/\s+/)[1];
+    pool.query("UPDATE chatgroup SET link = $1 where chat_id = $2", [link, chatId])
+    .then((res) => bot.sendMessage(chatId, "done!"))
+    .catch((err) => bot.sendMessage(chatId, "set link failed, try again."));
+})
+
 bot.onText(/^(@[\w.]+)$/, function (msg, match){
     var userId = msg.from.id;
     var username = msg.from.username || msg.from.first_name;
@@ -334,8 +342,13 @@ const submitDropScheduleFromDB = (chatId) => {
 submitDropScheduleFromDB();
 
 function getScheduleJobPromise(chatId){
-    var link = "QQ";
+    var link = "";
     return Promise.resolve(chatId)
+    .then((chatId) => {
+        return pool.query("SELECT link FROM chatgroup where chat_id = $1", [chatId]).then((res) => {
+            link = res.rows[0].link;
+        }).then(() => chatId);
+    })
     .then((chatId) => {
         // Round start msg
         var response = util.format(config.drop.roundStartMsg.join('\n'), config.drop.roundStartPeriodMin, link);
