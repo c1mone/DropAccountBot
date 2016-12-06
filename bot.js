@@ -307,15 +307,8 @@ pool.query("SELECT chat_id, drop_hour_array FROM chatgroup").then((res) => {
     logger.warn("load stored time schedule error", err.message, err.stack);
 });
 
-function delay(min){
-    return function(chatId){
-        return new Promise( resolve => {
-            setTimeout( () => {
-                resolve(chatId);
-            }, min * 60 * 1000);
-        });
-    }
-}
+const delay = (min) => (chatId) => new Promise(resolve => setTimeout(() => resolve(chatId), min * 60 * 1000));
+
 function getSchedulePromise(chatId){
     var link = "QQ";
     return Promise.resolve(chatId)
