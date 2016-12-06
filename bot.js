@@ -470,6 +470,10 @@ function getScheduleJobPromise(chatId){
         }
     })
     .catch((err) => {
+        var oldState = cache.get("state"+chatId);
+        var newState = config.drop.state.idle;
+        cache.set("state"+chatId, newState, 0);
+        logger.debug("change chat_id: %s state from %s to %s", chatId, oldState, newState);
         if(err.message !== "no one join, skip this round"){
             logger.warn("schedule msg to chat_id: %s error", chatId, err.message, err.stack);
         }
