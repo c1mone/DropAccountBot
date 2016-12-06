@@ -226,6 +226,12 @@ bot.on('message', function(msg) {
                     var response = util.format(config.drop.newMemberMsg.join("\n"), username);
                     return bot.sendMessage(chatId, response);
                 }
+                if(msg.left_chat_member !== undefined){
+                    var userId = msg.left_chat_member.id;
+                    return pool.query("DELETE FROM chatuser where chat_id = $1 and user_id = $2",[chatId, userId]).catch((err) => {
+                        logger.warn("delete user_id: %s chat_id: %s left member from db error", userId, chatId, err.message, err.stack);
+                    });
+                }
             }
         }).catch((err) => {
             logger.warn("get new/left member from chat_id: %s error", chatId, err.message, err.stack);
