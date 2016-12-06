@@ -37,16 +37,23 @@ const herokuPgConfig = {
   ssl: true
 };
 const pool = new Pool(herokuPgConfig);
+var botId;
+bot.getMe()
+    .then((msg) => {
+        botId = msg.id;
+        logger.info('%s bot server started...', msg.username);
+    })
+    .catch((err) => {
+        throw new Error(err);
+    });
 
-logger.info('bot server started...');
+
 
 bot.onText(/^\/echo (.+)$/, function (msg, match) {
   var name = match[1];
   var chatId = msg.chat.id;
   bot.sendMessage(msg.chat.id, 'Hello ' + name + '!');
 });
-
-var chat = new Map();
 
 bot.onText(/^\/start$/, function (msg){
     var username = msg.from.username;
@@ -217,7 +224,6 @@ bot.onText(/^\/stop$/, function (msg){
 bot.on('message', function(msg) {
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
-    // console.log(msg);
     if(isGroupChatType(chatType)){
         isChatIdExist(chatId).then((isExist) => {
             if(isExist){
@@ -225,6 +231,15 @@ bot.on('message', function(msg) {
                     var username = msg.new_chat_member.username || msg.new_chat_member.first_name;
                     var response = util.format(config.drop.newMemberMsg.join("\n"), username);
                     return bot.sendMessage(chatId, response);
+                }
+                if(msg.left_chat_member.id === botId){
+                    return pool.query("DELETE FROM chatgroup where chat_id = $1",[chatId]).then((res) => {
+                        return pool.query("DELETE FROM chatuser where chat_id = $1", [chatId]).catch((err) => {
+                            logger.warn("delete chatuser table because bot left chat_id: %s error", chatId, err.message, err.stack);
+                        });
+                    }).catch((err) => {
+                        logger.warn("delete chatgroup table because bot left chat_id: %s error", chatId, err.message, err.stack);
+                    });
                 }
                 if(msg.left_chat_member !== undefined){
                     var userId = msg.left_chat_member.id;
