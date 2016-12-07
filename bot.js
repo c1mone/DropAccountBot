@@ -240,16 +240,16 @@ bot.on('message', function(msg) {
                     var response = util.format(config.drop.newMemberMsg.join("\n"), username);
                     return bot.sendMessage(chatId, response);
                 }
-                if(msg.left_chat_member.id === botId){
-                    return pool.query("DELETE FROM chatgroup where chat_id = $1",[chatId]).then((res) => {
-                        return pool.query("DELETE FROM chatuser where chat_id = $1", [chatId]).catch((err) => {
-                            logger.warn("delete chatuser table because bot left chat_id: %s error", chatId, err.message, err.stack);
-                        });
-                    }).catch((err) => {
-                        logger.warn("delete chatgroup table because bot left chat_id: %s error", chatId, err.message, err.stack);
-                    });
-                }
                 if(msg.left_chat_member !== undefined){
+                    if(msg.left_chat_member.id === botId){
+                        return pool.query("DELETE FROM chatgroup where chat_id = $1",[chatId]).then((res) => {
+                            return pool.query("DELETE FROM chatuser where chat_id = $1", [chatId]).catch((err) => {
+                                logger.warn("delete chatuser table because bot left chat_id: %s error", chatId, err.message, err.stack);
+                            });
+                        }).catch((err) => {
+                            logger.warn("delete chatgroup table because bot left chat_id: %s error", chatId, err.message, err.stack);
+                        });
+                    }
                     var userId = msg.left_chat_member.id;
                     return pool.query("DELETE FROM chatuser where chat_id = $1 and user_id = $2",[chatId, userId]).catch((err) => {
                         logger.warn("delete user_id: %s chat_id: %s left member from db error", userId, chatId, err.message, err.stack);
@@ -467,23 +467,24 @@ function getScheduleJobPromise(chatId){
         var userArr = cache.get("user" + chatId);
         if(userArr !== undefined && userArr.length > 0){
             // one user may have duplicate undone account, but we only calculate once.
-            var seen = {};
-            userArr = userArr.filter((elem) => {
-                var elemSplit = elem.split("@");
-                var userId = elemSplit.splice(0, 1).toString();
-                var account = elemSplit.splice(0, 1).toString();
-                var username = elemSplit.join("@");
-                return seen.hasOwnProperty(userId) ? false : (seen[userId] = true);
-            });
-            return Promise.all(userArr.map((elem) => {
-                var elemSplit = elem.split("@");
-                var userId = elemSplit.splice(0, 1).toString();
-                var account = elemSplit.splice(0, 1).toString();
-                var username = elemSplit.join("@");
+            var mergeMap = userArr.reduce((pv, cv) => {
+                    var elemSplit = cv.split("@");
+                    var userId = elemSplit.splice(0, 1).toString();
+                    var account = elemSplit.splice(0, 1).toString();
+                    var username = elemSplit.join("@");
+                    pv.hasOwnProperty(userId) ? pv[userId]['warnStatus'] += 1 : pv[userId] = {"username": username, "warnStatus": 1};
+                    return pv;
+                }, {});
+
+
+            return Promise.all(Object.keys(mergeMap).map((key) => {
+                var userId = key;
+                var username = mergeMap[key]['username'];
+                var warnStatus = mergeMap[key]['warnStatus'];
                 return pool.query("INSERT INTO chatuser(chatuser_id, chat_id, user_id, username, warn_status) \
                  values($1, $2, $3, $4, $5) ON CONFLICT (chatuser_id) \
-                 DO UPDATE SET warn_status = chatuser.warn_status + 1", [chatId + userId, chatId, userId, username, 1])
-                 .then((res) => logger.debug("insert not done user %s to db success", [chatId + userId, chatId, userId, username, 1]))
+                 DO UPDATE SET warn_status = chatuser.warn_status + $5", [chatId + userId, chatId, userId, username, warnStatus])
+                 .then((res) => logger.debug("insert not done user %s to db success", [chatId + userId, chatId, userId, username, warnStatus]))
                  .catch((err) => logger.warn("insert chat_id: %s not done user to db error", chatId, err.message, err.stack))
                  .then(() => {return pool.query("SELECT warn_status from chatuser where chat_id = $1 and user_id = $2", [chatId, userId])})
                  .then((res) => {
