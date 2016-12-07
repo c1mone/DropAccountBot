@@ -399,7 +399,7 @@ function getScheduleJobPromise(chatId){
         .then(() => {return bot.sendMessage(chatId, response2)})
         .then(() => {
             return Promise.all(accountListResponse.map((accountListStr) => {
-                logger.debug("send list %s to chat_id: %s", accountListStr.replace(/\n/, ","), chatId);
+                logger.debug("send list %s to chat_id: %s", accountListStr.replace(/\n/g, ","), chatId);
                 return bot.sendMessage(chatId, accountListStr);
             }));
         });
@@ -491,11 +491,17 @@ function getScheduleJobPromise(chatId){
                      var warnStatus = res.rows[0].warn_status;
                      var warnResponse = "user: " + username + " has been warned (" + warnStatus + "/3)";
                      var banResponse = "user: " + username + " got banned!";
-                     if(warnStatus >= 3)
-                         return bot.sendMessage(chatId, warnResponse).then(() => {
-                             bot.sendMessage(chatId,banResponse);
+                     if(warnStatus >= 3){
+                         return bot.sendMessage(chatId, warnResponse)
+                         .then(() => bot.sendMessage(chatId,banResponse))
+                         .then(() => bot.kickChatMember(chatId, userId))
+                         .then((isSuccess) => {
+                             logger.log("username: %s, user_id: %s in chat_id: %s is banned", username, userId, chatId);
+                         })
+                         .catch((err) => {
+                             return bot.sendMessage(chatId, "Not enough rights to kick chat member");
                          });
-                     else
+                     }else
                         return bot.sendMessage(chatId, warnResponse);
                  })
                  .catch((err) => {
