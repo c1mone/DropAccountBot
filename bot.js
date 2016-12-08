@@ -198,6 +198,7 @@ bot.onText(/^\/stop$/, function (msg){
     var chatId = msg.chat.id;
     var chatType = msg.chat.type;
     var chatTitle = msg.chat.title;
+    logger.debug("before " + cache.get("schedule" + chatId));
 
     if(isGroupChatType(chatType) && isAdmin(username)){
         isChatIdExist(chatId).then((isExist) => {
@@ -205,14 +206,16 @@ bot.onText(/^\/stop$/, function (msg){
                 throw new Error("Auto-Drop game is not starting!");
             }else{
                 return pool.query("DELETE FROM chatgroup where chat_id = $1",[chatId]).then((res) => {
-                    logger.debug("Delete chat_id: %s, chat_title: %s success",chatId, chatTitle);
+                    logger.debug("delete chat_id: %s, chat_title: %s success",chatId, chatTitle);
                 }).catch((err) => {
                     logger.error("Delete chat_id: %s, chat_title: %s error", chatId, chatTitle);
                     logger.error('Delete error: ', err.message, err.stack);
                     throw new Error("could not connect to db!, try again.")
                 })
             }
-        }).then(() => {
+        })
+        .then(cancelScheduleJob(chatId))
+        .then(() => {
             logger.info("user: %s stop drop game in chat id: %s", username, chatId);
             var response = ["OK " + username + "!"];
             response.push("Now stop auto-drop game in this chat :)")
@@ -226,6 +229,7 @@ bot.onText(/^\/stop$/, function (msg){
             replyWithError(chatId, err);
         });
     }
+
 
 });
 
@@ -246,14 +250,16 @@ bot.on('message', function(msg) {
                             return pool.query("DELETE FROM chatuser where chat_id = $1", [chatId]).catch((err) => {
                                 logger.warn("delete chatuser table because bot left chat_id: %s error", chatId, err.message, err.stack);
                             });
-                        }).catch((err) => {
+                        })
+                        .then(cancelScheduleJob(chatId))
+                        .catch((err) => {
                             logger.warn("delete chatgroup table because bot left chat_id: %s error", chatId, err.message, err.stack);
                         });
                     }
                     var userId = msg.left_chat_member.id;
                     return pool.query("DELETE FROM chatuser where chat_id = $1 and user_id = $2",[chatId, userId]).catch((err) => {
-                        logger.warn("delete user_id: %s chat_id: %s left member from db error", userId, chatId, err.message, err.stack);
-                    });
+                            logger.warn("delete user_id: %s chat_id: %s left member from db error", userId, chatId, err.message, err.stack);
+                        });
                 }
             }
         }).catch((err) => {
@@ -307,6 +313,14 @@ const isChatIdExist = (chatId) => {
             }));
         }
     });
+}
+
+const cancelScheduleJob = (chatId) => () => {
+    var scheduleJobArr = cache.get("schedule" + chatId);
+    logger.debug("delete schedule job in chat_id: %s", chatId);
+    return Promise.all(scheduleJobArr.map((scheduleJob) => {
+        scheduleJob.cancel();
+    })).then(() => cache.del("schedule" + chatId));
 }
 
 const submitDropScheduleFromDB = (chatId) => {
