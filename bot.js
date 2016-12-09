@@ -128,13 +128,13 @@ bot.onText(/^(@[\w.]+)$/, (msg, match) => {
             if (isExist) {
                 if (state === 'DROP') {
                     if (accountArr === undefined) {
-                        cache.set('account' + chatId, [account]);
+                        cache.set('account' + chatId, [userId + account]);
                         cache.set('user' + chatId, [userId + account + '@' + username]);
                         logger.debug('not found account cache, create new one with account: ' + cache.get('account' + chatId));
-                    } else if (!accountArr.some(elem => (elem === account))) {
-                        cache.set('account' + chatId, accountArr.concat(account));
+                    } else if (!accountArr.some(elem => (elem === (userId + account)))) {
+                        cache.set('account' + chatId, accountArr.concat(userId + account));
                         cache.set('user' + chatId, userArr.concat(userId + account + '@' + username));
-                        logger.debug('add account: %s to account cache, now it has: %s', account, cache.get('account' + chatId));
+                        logger.debug('add account: %s to account cache, now it has: %s', userId + account, cache.get('account' + chatId));
                     } else {
                         response = config.drop.dropExistMsg;
                         logger.debug('account already exists in accout cache');
@@ -146,6 +146,45 @@ bot.onText(/^(@[\w.]+)$/, (msg, match) => {
             }
         }).catch((err) => {
             logger.warn('get drop account from chat_id: %s error', chatId, err.message, err.stack);
+        });
+    }
+});
+
+bot.onText(/^\/remove$/, (msg) => {
+    const userId = msg.from.id;
+    const username = msg.from.username || msg.from.first_name;
+    const chatId = msg.chat.id;
+    const chatType = msg.chat.type;
+    if (isGroupChatType(chatType)) {
+        isChatIdExist(chatId)
+        .then((isExist) => {
+            const state = cache.get('state' + chatId);
+            if (isExist && state === 'DROP') {
+                let userArr = cache.get('user' + chatId);
+                let accountArr = cache.get('account' + chatId);
+                accountArr = accountArr.filter((elem) => {
+                    const elemSplit = elem.split('@');
+                    const userIdCache = elemSplit.splice(0, 1);
+                    if (userIdCache === userId) {
+                        logger.debug('remove chatId: %s, username: %s from account cache success', chatId, username);
+                        return false;
+                    }
+                    return true;
+                });
+                logger.debug('account cache now has %s', accountArr);
+                cache.set('account' + chatId, accountArr);
+                userArr = userArr.filter((elem) => {
+                    const elemSplit = elem.split('@');
+                    const userIdCache = elemSplit.splice(0, 1);
+                    if (userIdCache === userId) {
+                        logger.debug('remove chatId: %s, username: %s from user cache success', chatId, username);
+                        return false;
+                    }
+                    return true;
+                });
+                logger.debug('user cache now has %s', userArr);
+                cache.set('user' + chatId, userArr);
+            }
         });
     }
 });
@@ -386,11 +425,16 @@ function getScheduleJobPromise(chatId) {
     .then(delay(config.drop.dropPeriodMin - config.drop.remindPeriodMin))
     .then((chatId) => {
         // Drop stop msg
-        const accountArr = cache.get('account' + chatId);
+        let accountArr = cache.get('account' + chatId);
         if (accountArr === undefined) {
             bot.sendMessage(chatId, 'No one join this round! Skip!');
             throw new Error('no one join, skip this round');
         }
+        accountArr = accountArr.map((elem) => {
+            const elemSplit = elem.split('@');
+            const account = elemSplit[1];
+            return account;
+        });
         logger.debug('account receive: ' + accountArr);
         const defaultAccountArr = config.drop.defaultAccount;
         const mergeAccountArr = mergeArray(accountArr, defaultAccountArr);
