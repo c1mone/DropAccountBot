@@ -150,22 +150,21 @@ bot.onText(/^(@[\w.]+)$/, (msg, match) => {
     }
 });
 
-bot.onText(/^\/remove$/, (msg) => {
+bot.onText(/^\/remove (@[\w.]+)$/, (msg, match) => {
     const userId = msg.from.id;
     const username = msg.from.username || msg.from.first_name;
     const chatId = msg.chat.id;
     const chatType = msg.chat.type;
+    const account = match[1];
     if (isGroupChatType(chatType)) {
         isChatIdExist(chatId)
         .then((isExist) => {
             const state = cache.get('state' + chatId);
-            if (isExist && state === 'DROP') {
-                let userArr = cache.get('user' + chatId);
-                let accountArr = cache.get('account' + chatId);
+            let userArr = cache.get('user' + chatId);
+            let accountArr = cache.get('account' + chatId);
+            if (isExist && state === 'DROP' && userArr !== undefined && accountArr !== undefined) {
                 accountArr = accountArr.filter((elem) => {
-                    const elemSplit = elem.split('@');
-                    const userIdCache = elemSplit.splice(0, 1);
-                    if (userIdCache === userId) {
+                    if (elem === (userId + account)) {
                         logger.debug('remove chatId: %s, username: %s from account cache success', chatId, username);
                         return false;
                     }
@@ -174,9 +173,7 @@ bot.onText(/^\/remove$/, (msg) => {
                 logger.debug('account cache now has %s', accountArr);
                 cache.set('account' + chatId, accountArr);
                 userArr = userArr.filter((elem) => {
-                    const elemSplit = elem.split('@');
-                    const userIdCache = elemSplit.splice(0, 1);
-                    if (userIdCache === userId) {
+                    if (elem === (userId + account + '@' + username)) {
                         logger.debug('remove chatId: %s, username: %s from user cache success', chatId, username);
                         return false;
                     }
@@ -184,6 +181,7 @@ bot.onText(/^\/remove$/, (msg) => {
                 });
                 logger.debug('user cache now has %s', userArr);
                 cache.set('user' + chatId, userArr);
+                return bot.sendMessage(chatId, 'remove account success!');
             }
         });
     }
@@ -237,9 +235,10 @@ bot.onText(/^\/stop$/, (msg) => {
             } else {
                 return pool.query('DELETE FROM chatgroup where chat_id = $1', [chatId]).then(() => {
                     logger.debug('delete chat_id: %s, chat_title: %s success', chatId, chatTitle);
+                    return pool.query('DELETE FROM chatuser where chat_id = $1', [chatId]);
                 }).catch((err) => {
-                    logger.error('Delete chat_id: %s, chat_title: %s error', chatId, chatTitle);
-                    logger.error('Delete error: ', err.message, err.stack);
+                    logger.error('delete chat_id: %s, chat_title: %s error', chatId, chatTitle);
+                    logger.error('delete error: ', err.message, err.stack);
                     throw new Error('could not connect to db!, try again.');
                 });
             }
@@ -432,7 +431,7 @@ function getScheduleJobPromise(chatId) {
         }
         accountArr = accountArr.map((elem) => {
             const elemSplit = elem.split('@');
-            const account = elemSplit[1];
+            const account = '@' + elemSplit[1];
             return account;
         });
         logger.debug('account receive: ' + accountArr);
