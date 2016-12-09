@@ -88,7 +88,7 @@ bot.onText(/^\/pin$/, (msg) => {
     const username = msg.from.username;
     const chatId = msg.chat.id;
     const chatType = msg.chat.type;
-    const response = util.format(config.drop.pinnedMsg.join('\n'), '\u{2757} \u{2757} \u{2757}', '\u{2757} \u{2757} \u{2757}');
+    const response = util.format(config.drop.pinnedMsg.join('\n'), '\u{1f509} \u{1f509} \u{1f509}', '\u{23f0} \u{23f0} \u{23f0}');
     if (isGroupChatType(chatType) && isAdmin(username)) {
         isChatIdExist(chatId)
         .then((isExist) => {
@@ -124,7 +124,7 @@ bot.onText(/^(@[\w.]+)$/, (msg, match) => {
             const state = cache.get('state' + chatId);
             const accountArr = cache.get('account' + chatId);
             const userArr = cache.get('user' + chatId);
-            let response = config.drop.dropSuccessMsg;
+            let response = '';
             if (isExist) {
                 if (state === 'DROP') {
                     if (accountArr === undefined) {
@@ -138,11 +138,12 @@ bot.onText(/^(@[\w.]+)$/, (msg, match) => {
                     } else {
                         response = config.drop.dropExistMsg;
                         logger.debug('account already exists in accout cache');
+                        return bot.sendMessage(chatId, response);
                     }
                 } else {
                     response = config.drop.dropWrongTimeMsg;
+                    return bot.sendMessage(chatId, response);
                 }
-                return bot.sendMessage(chatId, response);
             }
         }).catch((err) => {
             logger.warn('get drop account from chat_id: %s error', chatId, err.message, err.stack);
@@ -404,7 +405,7 @@ function getScheduleJobPromise(chatId) {
     .then(delay(config.drop.roundStartPeriodMin))
     .then((chatId) => {
         // Drop start msg
-        const response = util.format(config.drop.dropStartMsg.join('\n'), '\u{1f4b0} \u{1f4b0} \u{1f4b0} \u{1f4b0}', config.drop.dropPeriodMin, link);
+        const response = util.format(config.drop.dropStartMsg.join('\n'), '\u{23f3} \u{23f3} \u{23f3}', config.drop.dropPeriodMin, link);
         bot.sendMessage(chatId, response);
         logger.debug('send drop start msg to chat_id: %s', chatId);
         const oldState = cache.get('state' + chatId);
@@ -416,7 +417,7 @@ function getScheduleJobPromise(chatId) {
     .then(delay(config.drop.remindPeriodMin))
     .then((chatId) => {
         // Remind drop msg
-        const response = util.format(config.drop.remindMsg.join('\n'), '\u{2757} \u{2757} \u{2757} \u{2757}', '\u{1f4b0} \u{1f4b0} \u{1f4b0} \u{1f4b0}', link, link, link);
+        const response = util.format(config.drop.remindMsg.join('\n'), '\u{23f3} \u{23f3} \u{23f3}', link, link, link);
         bot.sendMessage(chatId, response);
         logger.debug('send remind drop msg to chat_id: %s', chatId);
         return chatId;
@@ -444,12 +445,13 @@ function getScheduleJobPromise(chatId) {
         }
         const response1 = util.format(config.drop.dropStopMsg1.join('\n'), config.drop.likePeriodMin);
         const response2 = config.drop.dropStopMsg2.join('\n');
+        const accountListResponseLen = accountListResponse.length;
         bot.sendMessage(chatId, response1)
         .then(() => bot.sendMessage(chatId, response2))
-        .then(() => Promise.all(accountListResponse.map((accountListStr) => {
+        .then(() => accountListResponse.reduce((sequence, accountListStr, index) => {
             logger.debug('send list %s to chat_id: %s', accountListStr.replace(/\n/g, ','), chatId);
-            return bot.sendMessage(chatId, accountListStr);
-        }))
+            return sequence.then(() => bot.sendMessage(chatId, `S P L I T - L I S T [${index + 1}/${accountListResponseLen}]\n` + accountListStr));
+        }, Promise.resolve())
         );
         logger.debug('send drop stop msg to chat_id: %s', chatId);
         const oldState = cache.get('state' + chatId);
@@ -500,14 +502,13 @@ function getScheduleJobPromise(chatId) {
     .then(delay(config.drop.likePeriodMin - config.drop.warnPeriodMin2))
     .then((chatId) => {
         // Drop stop msg
-        const response = util.format(config.drop.roundStopMsg.join('\n'), link);
-        bot.sendMessage(chatId, response);
+        const response = util.format(config.drop.roundStopMsg.join('\n'), '\u{203c} \u{203c} \u{203c}', link);
         logger.debug('send round stop msg to chat_id: %s', chatId);
         const oldState = cache.get('state' + chatId);
         const newState = config.drop.state.idle;
         cache.set('state' + chatId, newState, 0);
         logger.debug('change chat_id: %s state from %s to %s', chatId, oldState, newState);
-        return chatId;
+        return bot.sendMessage(chatId, response).then(() => chatId);
     })
     .then((chatId) => {
         // Send warn msg
@@ -538,7 +539,7 @@ function getScheduleJobPromise(chatId) {
                      const warnStatusDB = res.rows[0].warn_status;
                      const warnResponse = 'user: ' + username + ' has been warned (' + warnStatusDB + '/3)';
                      const banResponse = 'user: ' + username + ' got banned!';
-                     if (warnStatus >= 3) {
+                     if (warnStatusDB >= 3) {
                          return bot.sendMessage(chatId, warnResponse)
                          .then(() => bot.sendMessage(chatId, banResponse))
                          .then(() => bot.kickChatMember(chatId, userId))
